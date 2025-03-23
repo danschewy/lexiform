@@ -18,6 +18,13 @@ import { createClient } from "@/utils/supabase/client";
 import type { Database } from "@/lib/supabase";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -34,7 +41,7 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
   const [form, setForm] = useState<Form | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedResponseIds, setSelectedResponseIds] = useState<string[]>([]);
   const [showSummary, setShowSummary] = useState(false);
 
   const { messages, append, status, setMessages } = useChat({
@@ -82,11 +89,11 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
     fetchData();
   }, [id, supabase]);
 
-  const generateSummary = async (userId?: string) => {
+  const generateSummary = async (responseIds?: string[]) => {
     try {
       setShowSummary(true);
-      const filteredResponses = userId
-        ? responses.filter((r) => r.user_id === userId)
+      const filteredResponses = responseIds?.length
+        ? responses.filter((r) => responseIds.includes(r.id))
         : responses;
 
       const prompt = `Analyze these form responses for "${form?.title}":
@@ -128,19 +135,28 @@ Provide:
     return <div className="container mx-auto px-4 py-8">Form not found</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
+    <div className="container mx-auto py-8">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon" className="mr-2">
+            <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">{form.title} - Responses</h1>
+          <div>
+            <h1 className="text-2xl font-bold">{form?.title}</h1>
+            <p className="text-sm text-gray-500">
+              {responses.length} responses received
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
           <Button
-            onClick={() => generateSummary(selectedUserId || undefined)}
+            onClick={() =>
+              generateSummary(
+                selectedResponseIds.length ? selectedResponseIds : undefined
+              )
+            }
             disabled={
               status === "submitted" ||
               status === "streaming" ||
@@ -152,7 +168,9 @@ Provide:
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            {selectedUserId ? "Summarize Selected" : "Summarize All"}
+            {selectedResponseIds.length > 0
+              ? `Summarize ${selectedResponseIds.length} Selected`
+              : "Summarize All Responses"}
           </Button>
         </div>
       </div>
@@ -163,7 +181,9 @@ Provide:
             <Card
               key={response.id}
               className={`${
-                selectedUserId === response.user_id ? "border-primary" : ""
+                selectedResponseIds.includes(response.id)
+                  ? "border-primary"
+                  : ""
               }`}
             >
               <CardContent className="p-4">
@@ -171,21 +191,21 @@ Provide:
                   <div className="flex items-center">
                     <User className="h-4 w-4 mr-2" />
                     <span className="text-sm text-gray-500">
-                      User {response.user_id.slice(0, 8)}...
+                      Response #{response.id.slice(0, 8)}...
                     </span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      setSelectedUserId(
-                        selectedUserId === response.user_id
-                          ? null
-                          : response.user_id
+                      setSelectedResponseIds((prev) =>
+                        prev.includes(response.id)
+                          ? prev.filter((id) => id !== response.id)
+                          : [...prev, response.id]
                       )
                     }
                   >
-                    {selectedUserId === response.user_id
+                    {selectedResponseIds.includes(response.id)
                       ? "Deselect"
                       : "Select"}
                   </Button>
