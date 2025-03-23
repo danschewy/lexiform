@@ -1,60 +1,191 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { PlusCircle, BarChart3 } from "lucide-react"
-import FormCard from "@/components/form-card"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, MessageSquare, BarChart3, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
-export default function Home() {
-  // In a real app, these would come from a database
-  const forms = [
-    {
-      id: "1",
-      title: "Customer Satisfaction Survey",
-      createdAt: "2023-11-10T12:00:00Z",
-      responseCount: 24,
-    },
-    {
-      id: "2",
-      title: "Product Feedback",
-      createdAt: "2023-11-05T09:30:00Z",
-      responseCount: 17,
-    },
-  ]
-
+export default function LandingPage() {
   return (
-    <main className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">ChatForms</h1>
-        <Link href="/forms/new">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Form
-          </Button>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {forms.map((form) => (
-          <FormCard key={form.id} form={form} />
-        ))}
-        <Link href="/forms/new" className="block">
-          <div className="border border-dashed border-gray-300 rounded-lg h-full min-h-[200px] flex flex-col items-center justify-center p-6 hover:border-primary hover:bg-gray-50 transition-colors">
-            <PlusCircle className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-600">Create new form</p>
-            <p className="text-sm text-gray-500 text-center mt-2">Start with a blank form or use a template</p>
+    <div className="flex flex-col min-h-screen">
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <MessageSquare className="h-6 w-6 text-primary mr-2" />
+            <span className="font-bold text-xl">ChatForms</span>
           </div>
-        </Link>
-      </div>
+          <div className="flex items-center gap-4">
+            <Link href="/auth/login">
+              <Button variant="ghost">Log in</Button>
+            </Link>
+            <Link href="/auth/signup">
+              <Button>Sign up</Button>
+            </Link>
+          </div>
+        </div>
+      </header>
 
-      <div className="mt-12">
-        <div className="flex items-center mb-4">
-          <BarChart3 className="mr-2 h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Recent Responses</h2>
+      <main>
+        {/* Hero Section */}
+        <section className="py-20 px-4">
+          <div className="container mx-auto max-w-5xl text-center">
+            <Badge className="mb-4 px-3 py-1 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+              Introducing ChatForms
+            </Badge>
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+              AI-native forms that are{" "}
+              <span className="text-primary">purely conversational</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+              Create surveys that feel like natural conversations. No more
+              boring forms - just chat with your respondents.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth/signup">
+                <Button size="lg" className="px-8">
+                  Get started for free
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button size="lg" variant="outline" className="px-8">
+                  View demo
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Feature Section */}
+        <section className="py-20 px-4 bg-gray-50">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              Why choose ChatForms?
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <MessageSquare className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">
+                  Conversational Experience
+                </h3>
+                <p className="text-gray-600">
+                  Create forms that feel like natural conversations, not
+                  clinical questionnaires.
+                </p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Quick Setup</h3>
+                <p className="text-gray-600">
+                  Just write your questions - no need to configure complex form
+                  fields.
+                </p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Better Insights</h3>
+                <p className="text-gray-600">
+                  Get more thoughtful responses and higher completion rates.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-20 px-4 bg-primary text-primary-foreground">
+          <div className="container mx-auto max-w-4xl text-center">
+            <h2 className="text-3xl font-bold mb-6">
+              Ready to transform your surveys?
+            </h2>
+            <p className="text-xl mb-8 opacity-90">
+              Join thousands of users who are getting better responses with
+              ChatForms.
+            </p>
+            <Link href="/auth/signup">
+              <Button size="lg" variant="secondary" className="px-8">
+                Create your first form
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+
+        {/* Testimonial Section */}
+        <section className="py-20 px-4">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              What our users say
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <p className="text-gray-600 mb-4">
+                  "ChatForms has completely changed how we collect customer
+                  feedback. Our response rates have increased by 40% since
+                  switching!"
+                </p>
+                <div className="flex items-center">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full mr-3"></div>
+                  <div>
+                    <p className="font-medium">Sarah Johnson</p>
+                    <p className="text-sm text-gray-500">
+                      Product Manager, TechCorp
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <p className="text-gray-600 mb-4">
+                  "Setting up surveys used to take hours. With ChatForms, I can
+                  create engaging forms in minutes. The conversational format
+                  gets us much better insights."
+                </p>
+                <div className="flex items-center">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full mr-3"></div>
+                  <div>
+                    <p className="font-medium">Michael Chen</p>
+                    <p className="text-sm text-gray-500">
+                      UX Researcher, DesignHub
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="bg-gray-100 py-12 mt-auto">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center mb-6 md:mb-0">
+              <MessageSquare className="h-5 w-5 text-primary mr-2" />
+              <span className="font-bold">ChatForms</span>
+            </div>
+            <div className="flex gap-6">
+              <Link href="#" className="text-gray-600 hover:text-primary">
+                About
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-primary">
+                Features
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-primary">
+                Pricing
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-primary">
+                Contact
+              </Link>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
+            &copy; {new Date().getFullYear()} ChatForms. All rights reserved.
+          </div>
         </div>
-        <div className="bg-white rounded-lg border shadow-sm p-6">
-          <p className="text-center text-gray-500 py-8">Responses from your forms will appear here</p>
-        </div>
-      </div>
-    </main>
-  )
+      </footer>
+    </div>
+  );
 }
-

@@ -1,61 +1,85 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Download, MessageSquare, User } from "lucide-react"
-import Link from "next/link"
+"use client";
+
+import { useEffect, useState } from "react";
+import { use } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Download, MessageSquare, User } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/components/auth-provider";
+import type { Database } from "@/lib/supabase";
+
+type Form = Database["public"]["Tables"]["forms"]["Row"];
+type Response = Database["public"]["Tables"]["responses"]["Row"];
 
 interface ResponsesPageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{
+    id: string;
+  }>;
 }
 
 export default function ResponsesPage({ params }: ResponsesPageProps) {
-  // In a real app, these would come from a database
-  const form = {
-    id: params.id,
-    title: "Customer Satisfaction Survey",
-    createdAt: "2023-11-10T12:00:00Z",
-    prompts: [
-      "Hi there! Thanks for taking this survey. What's your name?",
-      "How did you hear about our product?",
-      "On a scale of 1-10, how satisfied are you with our service?",
-      "What features would you like to see improved?",
-      "Any additional comments or feedback for us?",
-    ],
+  const { id } = use(params);
+  const supabase = createClient();
+  const { user } = useAuth();
+  const [form, setForm] = useState<Form | null>(null);
+  const [responses, setResponses] = useState<Response[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch form data
+        const { data: formData, error: formError } = await supabase
+          .from("forms")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (formError) throw formError;
+        setForm(formData);
+
+        // Fetch responses
+        const { data: responsesData, error: responsesError } = await supabase
+          .from("responses")
+          .select("*")
+          .eq("form_id", id)
+          .order("created_at", { ascending: false });
+
+        if (responsesError) throw responsesError;
+        setResponses(responsesData || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id, supabase]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
   }
 
-  const responses = [
-    {
-      id: "resp1",
-      respondent: "Anonymous User",
-      timestamp: "2023-11-15T14:23:00Z",
-      answers: [
-        "Sarah Johnson",
-        "I found you through a Google search",
-        "8",
-        "I'd like to see faster loading times and more customization options",
-        "Overall great product, keep up the good work!",
-      ],
-    },
-    {
-      id: "resp2",
-      respondent: "Anonymous User",
-      timestamp: "2023-11-14T09:45:00Z",
-      answers: [
-        "Michael Chen",
-        "A friend recommended it to me",
-        "9",
-        "The mobile app could use some improvements",
-        "I've been a customer for 2 years and love the service",
-      ],
-    },
-  ]
+  if (!form) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Form not found</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center mb-6">
-        <Link href="/">
+        <Link href="/dashboard">
           <Button variant="ghost" size="icon" className="mr-2">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -70,7 +94,9 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Responses</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Total Responses
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
@@ -82,7 +108,9 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Completion Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">100%</div>
@@ -91,7 +119,9 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Average Completion Time</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Average Completion Time
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">2m 34s</div>
@@ -112,17 +142,28 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center">
                     <User className="h-4 w-4 mr-2 text-gray-500" />
-                    <CardTitle className="text-base font-medium">Response #{index + 1}</CardTitle>
+                    <CardTitle className="text-base font-medium">
+                      Response #{index + 1}
+                    </CardTitle>
                   </div>
-                  <div className="text-sm text-gray-500">{new Date(response.timestamp).toLocaleString()}</div>
+                  <div className="text-sm text-gray-500">
+                    {new Date(response.created_at).toLocaleString()}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
                 <div className="space-y-4">
                   {form.prompts.map((prompt, i) => (
-                    <div key={i} className="border-b pb-3 last:border-0 last:pb-0">
-                      <div className="text-sm font-medium text-gray-500 mb-1">{prompt}</div>
-                      <div className="pl-4 border-l-2 border-primary">{response.answers[i]}</div>
+                    <div
+                      key={i}
+                      className="border-b pb-3 last:border-0 last:pb-0"
+                    >
+                      <div className="text-sm font-medium text-gray-500 mb-1">
+                        {prompt}
+                      </div>
+                      <div className="pl-4 border-l-2 border-primary">
+                        {response.answers[prompt] || "No answer provided"}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -134,12 +175,13 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
         <TabsContent value="summary">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-gray-500 py-12">Response summaries and analytics will appear here</p>
+              <p className="text-center text-gray-500 py-12">
+                Response summaries and analytics will appear here
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
-
