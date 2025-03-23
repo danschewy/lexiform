@@ -4,11 +4,20 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, FileText, User, Loader2, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  User,
+  Loader2,
+  Sparkles,
+  MessageSquare,
+  Wand2,
+} from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import type { Database } from "@/lib/supabase";
 import { useChat } from "@ai-sdk/react";
+import ReactMarkdown from "react-markdown";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -80,30 +89,25 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
         ? responses.filter((r) => r.user_id === userId)
         : responses;
 
-      const prompt = `Please analyze and summarize the following responses to the form "${
-        form?.title
-      }":
+      const prompt = `Analyze these form responses for "${form?.title}":
 
-Form Questions:
-${form?.prompts.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+Questions: ${form?.prompts.join(" | ")}
 
 Responses:
 ${filteredResponses
   .map(
     (r, i) => `
-Response #${i + 1}:
-${Object.entries(r.answers)
-  .map(([q, a]) => `Q: ${q}\nA: ${a}`)
-  .join("\n")}
-`
+#${i + 1}: ${Object.entries(r.answers)
+      .map(([q, a]) => `${q}: ${a}`)
+      .join(" | ")}`
   )
   .join("\n")}
 
-Please provide:
-1. A summary of key patterns and trends
-2. Notable insights or common themes
-3. Any interesting outliers or unique responses
-4. Statistical breakdown where relevant (e.g., common answer types)`;
+Provide:
+1. Key patterns/trends
+2. Notable insights
+3. Unique responses
+4. Stats (if relevant)`;
 
       console.log("Submitting prompt:", prompt);
 
@@ -210,20 +214,17 @@ Please provide:
                   <h2 className="font-medium">AI Summary</h2>
                 </div>
                 <div className="space-y-4">
-                  {messages
-                    .filter((m) => m.role === "assistant")
-                    .map((message) => (
-                      <div
-                        key={message.id}
-                        className="text-sm text-gray-600 whitespace-pre-wrap"
-                      >
-                        {message.content}
-                      </div>
-                    ))}
                   {(status === "submitted" || status === "streaming") && (
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Generating summary...
+                    </div>
+                  )}
+                  {messages.length > 0 && (
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown>
+                        {messages[messages.length - 1].content}
+                      </ReactMarkdown>
                     </div>
                   )}
                 </div>
