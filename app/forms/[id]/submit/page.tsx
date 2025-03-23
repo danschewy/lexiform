@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Send } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +26,8 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -50,20 +51,36 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   }, [id, supabase]);
 
   const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.from("responses").insert({
-        form_id: id,
-        answers,
-      });
+    if (!form) return;
 
-      if (error) throw error;
-      setSubmitted(true);
-    } catch (error) {
-      console.error("Error submitting response:", error);
-      alert("Failed to submit response. Please try again.");
-    } finally {
-      setSubmitting(false);
+    if (currentPromptIndex < form.prompts.length) {
+      // Save current answer and move to next prompt
+      setAnswers({
+        ...answers,
+        [form.prompts[currentPromptIndex]]: inputValue,
+      });
+      setCurrentPromptIndex(currentPromptIndex + 1);
+      setInputValue("");
+    } else {
+      // Submit all answers
+      setSubmitting(true);
+      try {
+        const { error } = await supabase.from("responses").insert({
+          form_id: id,
+          answers: {
+            ...answers,
+            [form.prompts[currentPromptIndex - 1]]: inputValue,
+          },
+        });
+
+        if (error) throw error;
+        setSubmitted(true);
+      } catch (error) {
+        console.error("Error submitting response:", error);
+        alert("Failed to submit response. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -115,36 +132,49 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         <h1 className="text-2xl font-bold">{form.title}</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Fill out the form</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {form.prompts.map((prompt, index) => (
-              <div key={index} className="space-y-2">
-                <label className="text-sm font-medium">{prompt}</label>
-                <Textarea
-                  value={answers[prompt] || ""}
-                  onChange={(e) =>
-                    setAnswers({ ...answers, [prompt]: e.target.value })
-                  }
-                  placeholder="Type your answer here..."
-                  rows={3}
-                />
+      <div className="max-w-2xl mx-auto">
+        <div className="space-y-4 mb-6">
+          {form.prompts.slice(0, currentPromptIndex).map((prompt, index) => (
+            <div key={index} className="space-y-2">
+              <div className="bg-primary/10 p-4 rounded-lg">
+                <p className="text-sm font-medium">{prompt}</p>
               </div>
-            ))}
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full"
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {submitting ? "Submitting..." : "Submit Response"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="bg-white p-4 rounded-lg border">
+                <p className="text-sm">{answers[prompt]}</p>
+              </div>
+            </div>
+          ))}
+          {currentPromptIndex < form.prompts.length && (
+            <div className="bg-primary/10 p-4 rounded-lg">
+              <p className="text-sm font-medium">
+                {form.prompts[currentPromptIndex]}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Type your answer here..."
+            rows={3}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || !inputValue.trim()}
+            className="self-end"
+          >
+            <Send className="mr-2 h-4 w-4" />
+            {submitting
+              ? "Submitting..."
+              : currentPromptIndex === form.prompts.length - 1
+              ? "Submit"
+              : "Next"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

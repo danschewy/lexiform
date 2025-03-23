@@ -19,8 +19,9 @@ import {
   MessageSquare,
   ArrowRight,
   Save,
+  Wand2,
 } from "lucide-react";
-import ChatPreview from "@/components/chat-preview";
+import { useChat } from "@ai-sdk/react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 
@@ -30,15 +31,38 @@ export default function NewFormPage() {
   const { user } = useAuth();
   const [title, setTitle] = useState("Untitled Form");
   const [description, setDescription] = useState("");
-  const [prompts, setPrompts] = useState([
-    {
-      id: "1",
-      text: "Hi there! Thanks for taking this survey. What's your name?",
-    },
-    { id: "2", text: "How did you hear about our product?" },
-  ]);
-  const [activePrompt, setActivePrompt] = useState<string | null>("1");
+  const [prompts, setPrompts] = useState<{ id: string; text: string }[]>([]);
+  const [activePrompt, setActivePrompt] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const { messages, input, handleInputChange, handleSubmit, setMessages } =
+    useChat({
+      onFinish: (message) => {
+        console.log("AI Response received:", message);
+        console.log("Message content:", message.content);
+        try {
+          const formData = JSON.parse(message.content);
+          console.log("Successfully parsed form data:", formData);
+          setTitle(formData.title);
+          setDescription(formData.description);
+          const newPrompts = formData.prompts.map((text: string) => ({
+            id: `prompt-${Date.now()}-${Math.random()}`,
+            text,
+          }));
+          console.log("Setting new prompts:", newPrompts);
+          setPrompts(newPrompts);
+        } catch (error) {
+          console.error("Error parsing AI response:", error);
+          console.error("Raw message content:", message.content);
+        }
+        setIsGenerating(false);
+      },
+      onError: (error) => {
+        console.error("Chat error:", error);
+        setIsGenerating(false);
+      },
+    });
 
   const addPrompt = () => {
     const newPrompt = {
@@ -70,8 +94,6 @@ export default function NewFormPage() {
         return;
       }
 
-      console.log("Current user ID:", user.id);
-
       const { error } = await supabase.from("forms").insert({
         title,
         description,
@@ -80,10 +102,7 @@ export default function NewFormPage() {
         is_active: true,
       });
 
-      if (error) {
-        console.error("Supabase error details:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       router.push("/dashboard");
       router.refresh();
@@ -93,6 +112,14 @@ export default function NewFormPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleGenerateForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Starting form generation with input:", input);
+    setIsGenerating(true);
+    setMessages([]);
+    handleSubmit(e);
   };
 
   return (
@@ -144,6 +171,34 @@ export default function NewFormPage() {
                   rows={3}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Form Generator</CardTitle>
+              <CardDescription>
+                Describe the form you want to create, and AI will generate
+                questions for you
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleGenerateForm} className="space-y-4">
+                <Textarea
+                  value={input}
+                  onChange={handleInputChange}
+                  placeholder="Describe the form you want to create (e.g., 'Create a customer feedback survey for a restaurant')"
+                  rows={4}
+                />
+                <Button
+                  type="submit"
+                  disabled={isGenerating}
+                  className="w-full"
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  {isGenerating ? "Generating..." : "Generate Questions"}
+                </Button>
+              </form>
             </CardContent>
           </Card>
 
@@ -227,7 +282,20 @@ export default function NewFormPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ChatPreview title={title} prompts={prompts.map((p) => p.text)} />
+              <div className="space-y-4 p-4">
+                {prompts.map((prompt, index) => (
+                  <div key={prompt.id} className="space-y-2">
+                    <div className="bg-primary/10 p-4 rounded-lg">
+                      <p className="text-sm font-medium">{prompt.text}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border">
+                      <p className="text-sm text-gray-500">
+                        Response will appear here
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
