@@ -12,9 +12,12 @@ import {
   Sparkles,
   MessageSquare,
   Wand2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/components/auth-provider";
 import type { Database } from "@/lib/supabase";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
@@ -25,6 +28,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -37,12 +52,15 @@ interface ResponsesPageProps {
 
 export default function ResponsesPage({ params }: ResponsesPageProps) {
   const { id } = use(params);
+  const router = useRouter();
   const supabase = createClient();
+  const { user } = useAuth();
   const [form, setForm] = useState<Form | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedResponseIds, setSelectedResponseIds] = useState<string[]>([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { messages, append, status, setMessages } = useChat({
     api: "/api/form-summary",
@@ -129,6 +147,36 @@ Provide:
     }
   };
 
+  const handleDeleteForm = async () => {
+    try {
+      setIsDeleting(true);
+
+      // First delete all responses
+      const { error: responsesError } = await supabase
+        .from("responses")
+        .delete()
+        .eq("form_id", id);
+
+      if (responsesError) throw responsesError;
+
+      // Then delete the form
+      const { error: formError } = await supabase
+        .from("forms")
+        .delete()
+        .eq("id", id);
+
+      if (formError) throw formError;
+
+      toast.success("Form and responses deleted successfully");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error deleting form:", error);
+      toast.error("Failed to delete form. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading)
     return <div className="container mx-auto px-4 py-8">Loading...</div>;
   if (!form)
@@ -172,6 +220,40 @@ Provide:
               ? `Summarize ${selectedResponseIds.length} Selected`
               : "Summarize All Responses"}
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Form</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this form? This will also
+                  delete all {responses.length} responses. This action cannot be
+                  undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteForm}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete Form"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

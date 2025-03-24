@@ -11,8 +11,11 @@ import {
   MessageSquare,
   Check,
   Copy,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/components/auth-provider";
 import type { Database } from "@/lib/supabase";
@@ -26,6 +29,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 
@@ -37,11 +51,13 @@ interface FormPageProps {
 
 export default function FormPage({ params }: FormPageProps) {
   const { id } = use(params);
+  const router = useRouter();
   const supabase = createClient();
   const { user } = useAuth();
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -74,6 +90,36 @@ export default function FormPage({ params }: FormPageProps) {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast.error("Failed to copy link");
+    }
+  };
+
+  const handleDeleteForm = async () => {
+    try {
+      setIsDeleting(true);
+
+      // First delete all responses
+      const { error: responsesError } = await supabase
+        .from("responses")
+        .delete()
+        .eq("form_id", id);
+
+      if (responsesError) throw responsesError;
+
+      // Then delete the form
+      const { error: formError } = await supabase
+        .from("forms")
+        .delete()
+        .eq("id", id);
+
+      if (formError) throw formError;
+
+      toast.success("Form and responses deleted successfully");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error deleting form:", error);
+      toast.error("Failed to delete form. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -135,6 +181,39 @@ export default function FormPage({ params }: FormPageProps) {
               Responses
             </Button>
           </Link>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Form</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this form? This will also
+                  delete all responses. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteForm}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete Form"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
