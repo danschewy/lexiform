@@ -155,7 +155,7 @@ export default function LandingPage() {
                 </Button>
               </Link>
             ) : (
-              <Link href="/signup">
+              <Link href="/auth/signup">
                 <Button size="lg" variant="secondary" className="px-8">
                   Create your first form
                   <ArrowRight className="ml-2 h-4 w-4" />
