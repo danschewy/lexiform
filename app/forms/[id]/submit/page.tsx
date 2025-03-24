@@ -299,6 +299,15 @@ Return only valid JSON, no other text.`;
     }
   };
 
+  // Add function to check if all questions are answered
+  const areAllQuestionsAnswered = () => {
+    if (!form) return false;
+    return form.prompts.every((prompt) => {
+      const answer = answers[prompt];
+      return answer && answer.trim().length > 0;
+    });
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -472,6 +481,29 @@ Return only valid JSON, no other text.`;
                   />
                 </div>
               ))}
+
+              {areAllQuestionsAnswered() && (
+                <Card className="bg-primary/5 border-primary mt-6">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">Ready to submit?</h3>
+                        <p className="text-sm text-gray-500">
+                          You've answered all {form?.prompts.length} questions
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleFinalSubmit}
+                        disabled={submitting}
+                        className="bg-primary"
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        {submitting ? "Submitting..." : "Submit Responses"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         </div>
