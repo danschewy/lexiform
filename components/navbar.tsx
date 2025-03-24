@@ -46,6 +46,16 @@ export default function Navbar() {
             Dashboard
           </Link>
           <Link
+            href="/my-responses"
+            className={`text-sm ${
+              pathname === "/my-responses"
+                ? "text-primary font-medium"
+                : "text-gray-600 hover:text-primary"
+            }`}
+          >
+            My Responses
+          </Link>
+          {/* <Link
             href="/forms"
             className={`text-sm ${
               pathname.startsWith("/forms")
@@ -64,7 +74,7 @@ export default function Navbar() {
             }`}
           >
             Templates
-          </Link>
+          </Link> */}
         </nav>
 
         <div className="flex items-center">

@@ -50,6 +50,7 @@ export type Database = {
           form_id: string;
           user_id: string;
           answers: Record<string, any>;
+          email: string | null;
         };
         Insert: {
           id?: string;
@@ -57,6 +58,7 @@ export type Database = {
           form_id: string;
           user_id: string;
           answers: Record<string, any>;
+          email?: string | null;
         };
         Update: {
           id?: string;
@@ -64,6 +66,7 @@ export type Database = {
           form_id?: string;
           user_id?: string;
           answers?: Record<string, any>;
+          email?: string | null;
         };
       };
       templates: {

@@ -13,14 +13,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Send, Edit2, Wand2, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
-import type { Database } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
+import { supabase } from "@/lib/supabase";
+import type { Database } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
+
+// If the Database type doesn't include allow_anonymous yet, add it manually
+interface EnhancedForm extends Form {
+  allow_anonymous?: boolean;
+}
+
 type Message = {
   id: string;
   role: "system" | "user";
@@ -39,9 +46,8 @@ const generateUniqueId = () => {
 
 export default function SubmitPage({ params }: SubmitPageProps) {
   const { id } = use(params);
-  const supabase = createClient();
   const { user } = useAuth();
-  const [form, setForm] = useState<Form | null>(null);
+  const [form, setForm] = useState<EnhancedForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -52,6 +58,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [paragraphInput, setParagraphInput] = useState("");
   const [isParsing, setIsParsing] = useState(false);
+  const router = useRouter();
 
   const {
     messages: aiMessages,
@@ -202,27 +209,61 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
     setSubmitting(true);
     try {
-      // If no user is logged in, create an anonymous session
-      let userId = user?.id;
+      // Get the current user's ID and email
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      let userId = currentUser?.id;
+      let userEmail = currentUser?.email;
+
+      console.log("Current user:", currentUser);
+
+      // If no user is logged in, check if anonymous submissions are allowed
       if (!userId) {
-        const {
-          data: { user: anonUser },
-          error: signInError,
-        } = await supabase.auth.signUp({
-          email: `anonymous-${Date.now()}@example.com`,
-          password: crypto.randomUUID(),
-        });
-        if (signInError) throw signInError;
-        userId = anonUser?.id;
+        if (form.allow_anonymous === true) {
+          console.log("No user found, but anonymous submissions are allowed");
+          console.log("Creating anonymous session");
+          const {
+            data: { user: anonUser },
+            error: signInError,
+          } = await supabase.auth.signUp({
+            email: `anonymous-${Date.now()}@example.com`,
+            password: crypto.randomUUID(),
+          });
+          if (signInError) throw signInError;
+          userId = anonUser?.id;
+          userEmail = anonUser?.email;
+          console.log("Created anonymous user:", anonUser);
+        } else {
+          console.log(
+            "Anonymous submissions not allowed. Redirecting to login."
+          );
+          // Redirect to login page with redirect back to this form
+          const returnUrl = encodeURIComponent(window.location.pathname);
+          router.push(`/login?redirect=${returnUrl}`);
+          setSubmitting(false);
+          return;
+        }
       }
 
-      const { error } = await supabase.from("responses").insert({
-        form_id: id,
-        answers,
-        user_id: userId,
+      console.log("Submitting response with:", {
+        userId,
+        userEmail,
+        formId: id,
       });
 
+      const { data, error } = await supabase
+        .from("responses")
+        .insert({
+          form_id: id,
+          answers,
+          user_id: userId,
+          email: userEmail,
+        })
+        .select();
+
       if (error) throw error;
+      console.log("Response submitted successfully:", data);
       setSubmitted(true);
     } catch (error) {
       console.error("Error submitting response:", error);
@@ -240,7 +281,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
       const prompt = `Extract answers to these form questions from the following text. Return a JSON object with the question as the key and the answer as the value. If an answer isn't found, use null.
 
 Questions:
-${form?.prompts.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+${form?.prompts.map((q: string, i: number) => `${i + 1}. ${q}`).join("\n")}
 
 Text to parse:
 ${paragraphInput}
@@ -418,7 +459,7 @@ Return only valid JSON, no other text.`;
                 </Button>
               </div>
 
-              {form?.prompts.map((prompt, index) => (
+              {form?.prompts.map((prompt: string, index: number) => (
                 <div key={index} className="space-y-2">
                   <label className="text-sm font-medium">{prompt}</label>
                   <Textarea

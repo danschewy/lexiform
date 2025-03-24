@@ -1,9 +1,21 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, MessageSquare, BarChart3, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  MessageSquare,
+  BarChart3,
+  Zap,
+  User,
+  LogOut,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/components/auth-provider";
 
 export default function LandingPage() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="border-b">
@@ -13,12 +25,30 @@ export default function LandingPage() {
             <span className="font-bold text-xl">ChatForms</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/auth/login">
-              <Button variant="ghost">Log in</Button>
-            </Link>
-            <Link href="/auth/signup">
-              <Button>Sign up</Button>
-            </Link>
+            {user ? (
+              <>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <User className="h-4 w-4" />
+                  <span>{user.email}</span>
+                </div>
+                <Link href="/dashboard">
+                  <Button variant="outline">Dashboard</Button>
+                </Link>
+                <Button variant="ghost" onClick={() => logout()}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Log in</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button>Sign up</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -39,17 +69,28 @@ export default function LandingPage() {
               boring forms - just chat with your respondents.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/signup">
-                <Button size="lg" className="px-8">
-                  Get started for free
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button size="lg" variant="outline" className="px-8">
-                  View demo
-                </Button>
-              </Link>
+              {user ? (
+                <Link href="/dashboard">
+                  <Button size="lg" className="px-8">
+                    Go to Dashboard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/signup">
+                    <Button size="lg" className="px-8">
+                      Get started for free
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard">
+                    <Button size="lg" variant="outline" className="px-8">
+                      View demo
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -106,12 +147,21 @@ export default function LandingPage() {
               Join thousands of users who are getting better responses with
               ChatForms.
             </p>
-            <Link href="/auth/signup">
-              <Button size="lg" variant="secondary" className="px-8">
-                Create your first form
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="lg" variant="secondary" className="px-8">
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/signup">
+                <Button size="lg" variant="secondary" className="px-8">
+                  Create your first form
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            )}
           </div>
         </section>
 

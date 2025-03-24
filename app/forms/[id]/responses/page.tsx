@@ -14,7 +14,8 @@ import {
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
@@ -25,6 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/components/auth-provider";
+import PageWrapper from "@/components/page-wrapper";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -37,10 +41,12 @@ interface ResponsesPageProps {
 
 export default function ResponsesPage({ params }: ResponsesPageProps) {
   const { id } = use(params);
-  const supabase = createClient();
   const [form, setForm] = useState<Form | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { user } = useAuth();
   const [selectedResponseIds, setSelectedResponseIds] = useState<string[]>([]);
   const [showSummary, setShowSummary] = useState(false);
 
@@ -60,6 +66,12 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) {
+        console.log("No user found, redirecting to login");
+        router.push("/auth/login");
+        return;
+      }
+
       try {
         // Fetch form
         const { data: formData, error: formError } = await supabase
@@ -68,26 +80,34 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
           .eq("id", id)
           .single();
 
-        if (formError) throw formError;
+        if (formError) {
+          console.error("Error fetching form:", formError);
+          throw formError;
+        }
         setForm(formData);
 
         // Fetch responses
         const { data: responsesData, error: responsesError } = await supabase
           .from("responses")
           .select("*")
-          .eq("form_id", id);
+          .eq("form_id", id)
+          .order("created_at", { ascending: false });
 
-        if (responsesError) throw responsesError;
-        setResponses(responsesData);
+        if (responsesError) {
+          console.error("Error fetching responses:", responsesError);
+          throw responsesError;
+        }
+        setResponses(responsesData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
+        setError("Failed to load responses");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id, supabase]);
+  }, [id, user, router]);
 
   const generateSummary = async (responseIds?: string[]) => {
     try {
@@ -129,27 +149,47 @@ Provide:
     }
   };
 
-  if (loading)
-    return <div className="container mx-auto px-4 py-8">Loading...</div>;
-  if (!form)
-    return <div className="container mx-auto px-4 py-8">Form not found</div>;
+  if (loading) {
+    return (
+      <PageWrapper>
+        <div className="text-center">Loading...</div>
+      </PageWrapper>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageWrapper>
+        <div className="text-center text-red-500">{error}</div>
+      </PageWrapper>
+    );
+  }
+
+  if (!form) {
+    return (
+      <PageWrapper>
+        <div className="text-center">Form not found</div>
+      </PageWrapper>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{form?.title}</h1>
-            <p className="text-sm text-gray-500">
-              {responses.length} responses received
-            </p>
-          </div>
+    <PageWrapper>
+      <div className="flex items-center gap-4 mb-8">
+        <Link href="/dashboard">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold">{form.title}</h1>
+          <p className="text-sm text-gray-500">
+            {responses.length} response{responses.length !== 1 ? "s" : ""}
+          </p>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button
             onClick={() =>
@@ -175,9 +215,15 @@ Provide:
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          {responses.map((response) => (
+      <div className="space-y-4">
+        {responses.length === 0 ? (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-center text-gray-500">No responses yet</p>
+            </CardContent>
+          </Card>
+        ) : (
+          responses.map((response) => (
             <Card
               key={response.id}
               className={`${
@@ -187,12 +233,17 @@ Provide:
               }`}
             >
               <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <User className="h-4 w-4 mr-2" />
                     <span className="text-sm text-gray-500">
                       Response #{response.id.slice(0, 8)}...
                     </span>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {formatDistanceToNow(new Date(response.created_at), {
+                      addSuffix: true,
+                    })}
                   </div>
                   <Button
                     variant="ghost"
@@ -210,49 +261,47 @@ Provide:
                       : "Select"}
                   </Button>
                 </div>
-                <div className="space-y-2">
-                  {Object.entries(response.answers).map(
-                    ([question, answer]) => (
-                      <div key={question}>
-                        <p className="text-sm font-medium">{question}</p>
-                        <p className="text-sm text-gray-600">{answer}</p>
-                      </div>
-                    )
-                  )}
+                <div className="mt-2">
+                  <Link
+                    href={`/forms/${id}/responses/${response.id}`}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View Details
+                  </Link>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {showSummary && (
-          <div className="lg:sticky lg:top-8">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="h-4 w-4" />
-                  <h2 className="font-medium">AI Summary</h2>
-                </div>
-                <div className="space-y-4">
-                  {(status === "submitted" || status === "streaming") && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating summary...
-                    </div>
-                  )}
-                  {messages.length > 0 && (
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <ReactMarkdown>
-                        {messages[messages.length - 1].content}
-                      </ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          ))
         )}
       </div>
-    </div>
+
+      {showSummary && (
+        <div className="lg:sticky lg:top-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-4 w-4" />
+                <h2 className="font-medium">AI Summary</h2>
+              </div>
+              <div className="space-y-4">
+                {(status === "submitted" || status === "streaming") && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating summary...
+                  </div>
+                )}
+                {messages.length > 0 && (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>
+                      {messages[messages.length - 1].content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </PageWrapper>
   );
 }

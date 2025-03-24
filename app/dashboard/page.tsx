@@ -4,10 +4,23 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, BarChart3 } from "lucide-react";
+import { PlusCircle, BarChart3, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import PageWrapper from "@/components/page-wrapper";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -16,6 +29,7 @@ export default function DashboardPage() {
   const [forms, setForms] = useState<Form[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFormId, setSelectedFormId] = useState<string>("all");
   const router = useRouter();
 
   useEffect(() => {
@@ -42,14 +56,22 @@ export default function DashboardPage() {
         // Fetch responses
         const { data: responsesData, error: responsesError } = await supabase
           .from("responses")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
+          .select(
+            `
+            *,
+            forms (
+              title
+            )
+          `
+          )
+          .order("created_at", { ascending: false })
+          .limit(10);
 
         if (responsesError) throw responsesError;
+        console.log("Fetched responses:", responsesData);
+        setResponses(responsesData || []);
 
         setForms(formsData || []);
-        setResponses(responsesData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -130,31 +152,50 @@ export default function DashboardPage() {
                 responses!
               </div>
             ) : (
-              responses.map((response) => (
-                <div
-                  key={response.id}
-                  className="border rounded-lg p-4 hover:border-primary transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">
-                        {forms.find((f) => f.id === response.form_id)?.title ||
-                          "Unknown Form"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {new Date(response.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/forms/${response.form_id}/responses/${response.id}`}
+              <div className="space-y-4">
+                {responses.map((response) => {
+                  const form = forms.find((f) => f.id === response.form_id);
+                  const firstAnswer = Object.entries(response.answers)[0];
+                  return (
+                    <div
+                      key={response.id}
+                      className="border rounded-lg p-4 hover:border-primary transition-colors"
                     >
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h3 className="font-medium">
+                            {form?.title || "Unknown Form"}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(response.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            router.push(
+                              `/forms/${response.form_id}/responses/${response.id}`
+                            )
+                          }
+                        >
+                          View
+                        </Button>
+                      </div>
+                      {firstAnswer && (
+                        <div className="mt-2 p-3 bg-muted/50 rounded-md">
+                          <p className="text-sm font-medium">
+                            {firstAnswer[0]}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {firstAnswer[1]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

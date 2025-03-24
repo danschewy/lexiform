@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const redirectTo = searchParams.get("redirectedFrom") || "/dashboard";
+        router.push(redirectTo);
+      }
+    });
+  }, [router, searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,13 +48,8 @@ export default function LoginPage() {
       });
       if (error) throw error;
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      router.push("/dashboard");
+      const redirectTo = searchParams.get("redirectedFrom") || "/dashboard";
+      router.push(redirectTo);
       router.refresh();
     } catch (error) {
       console.error("Login error:", error);
@@ -122,13 +128,16 @@ export default function LoginPage() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-gray-500">
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="text-sm text-center text-gray-500">
               Don't have an account?{" "}
-              <Link href="/signup" className="text-primary hover:underline">
+              <Link
+                href="/auth/signup"
+                className="text-primary hover:underline"
+              >
                 Sign up
               </Link>
-            </p>
+            </div>
           </CardFooter>
         </Card>
       </main>
