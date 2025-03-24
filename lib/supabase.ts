@@ -66,6 +66,32 @@ export type Database = {
           answers?: Record<string, any>;
         };
       };
+      templates: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          title: string;
+          description: string | null;
+          prompts: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          title: string;
+          description?: string | null;
+          prompts: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          title?: string;
+          description?: string | null;
+          prompts?: string[];
+        };
+      };
     };
   };
 };

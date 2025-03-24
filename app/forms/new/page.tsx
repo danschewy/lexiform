@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,16 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/components/auth-provider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Database } from "@/lib/supabase";
+
+type Template = Database["public"]["Tables"]["templates"]["Row"];
 
 export default function NewFormPage() {
   const router = useRouter();
@@ -35,6 +45,47 @@ export default function NewFormPage() {
   const [activePrompt, setActivePrompt] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("none");
+
+  // Fetch templates on component mount
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("templates")
+          .select("*")
+          .order("title");
+
+        if (error) throw error;
+        setTemplates(data || []);
+      } catch (error) {
+        console.error("Error fetching templates:", error);
+      }
+    };
+
+    fetchTemplates();
+  }, [supabase]);
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    if (templateId === "none") {
+      setTitle("Untitled Form");
+      setDescription("");
+      setPrompts([]);
+      return;
+    }
+    const template = templates.find((t) => t.id === templateId);
+    if (template) {
+      setTitle(template.title);
+      setDescription(template.description || "");
+      const newPrompts = template.prompts.map((text: string) => ({
+        id: `prompt-${Date.now()}-${Math.random()}`,
+        text,
+      }));
+      setPrompts(newPrompts);
+    }
+  };
 
   const { messages, input, handleInputChange, handleSubmit, setMessages } =
     useChat({
@@ -142,6 +193,27 @@ export default function NewFormPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Template
+                </label>
+                <Select
+                  value={selectedTemplate}
+                  onValueChange={handleTemplateSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a template or start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Start from scratch</SelectItem>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <label
                   htmlFor="title"
