@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ import {
 import { Separator } from "@radix-ui/react-dropdown-menu";
 import { MessageSquare, ArrowRight } from "lucide-react";
 
-export default function LoginPage() {
+// Separate component for handling search params
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,47 @@ export default function LoginPage() {
   };
 
   return (
+    <form onSubmit={handleLogin} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="name@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </div>
+      {error && <div className="text-sm text-red-500">{error}</div>}
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? "Logging in..." : "Log in"}
+        {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
+      </Button>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -70,41 +112,9 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Logging in..." : "Log in"}
-                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
-              </Button>
-            </form>
+            <Suspense fallback={<div>Loading...</div>}>
+              <LoginForm />
+            </Suspense>
 
             <div className="mt-6">
               <div className="relative">
