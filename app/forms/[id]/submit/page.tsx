@@ -3,13 +3,22 @@
 import { useEffect, useState, useRef } from "react";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Send, Edit2 } from "lucide-react";
+import { ArrowLeft, Send, Edit2, Wand2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import type { Database } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { useChat } from "@ai-sdk/react";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Message = {
@@ -24,6 +33,10 @@ interface SubmitPageProps {
   }>;
 }
 
+const generateUniqueId = () => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 export default function SubmitPage({ params }: SubmitPageProps) {
   const { id } = use(params);
   const supabase = createClient();
@@ -37,6 +50,55 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [paragraphInput, setParagraphInput] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
+
+  const {
+    messages: aiMessages,
+    append,
+    status,
+  } = useChat({
+    api: "/api/chat",
+    onFinish: (message) => {
+      try {
+        const parsedAnswers = JSON.parse(message.content);
+
+        // Update answers with parsed values
+        const newAnswers = { ...answers };
+        Object.entries(parsedAnswers).forEach(([question, answer]) => {
+          if (answer !== null) {
+            newAnswers[question] = answer as string;
+          }
+        });
+        setAnswers(newAnswers);
+
+        // Update the chat interface to show the extracted answers
+        const newMessages = [...messages];
+        Object.entries(parsedAnswers).forEach(([question, answer]) => {
+          if (answer !== null) {
+            newMessages.push({
+              id: generateUniqueId(),
+              role: "user",
+              content: answer as string,
+            });
+          }
+        });
+        setMessages(newMessages);
+
+        toast.success("Answers extracted from text!");
+      } catch (error) {
+        console.error("Error parsing AI response:", error);
+        toast.error("Failed to parse text. Please try again.");
+      } finally {
+        setIsParsing(false);
+      }
+    },
+    onError: (error) => {
+      console.error("Chat error:", error);
+      toast.error("Failed to parse text. Please try again.");
+      setIsParsing(false);
+    },
+  });
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -94,7 +156,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     const newMessages = [
       ...messages,
       {
-        id: Date.now().toString(),
+        id: generateUniqueId(),
         role: "user" as const,
         content: input,
       },
@@ -170,6 +232,32 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     }
   };
 
+  const handleParseParagraph = async () => {
+    if (!paragraphInput.trim()) return;
+
+    setIsParsing(true);
+    try {
+      const prompt = `Extract answers to these form questions from the following text. Return a JSON object with the question as the key and the answer as the value. If an answer isn't found, use null.
+
+Questions:
+${form?.prompts.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+Text to parse:
+${paragraphInput}
+
+Return only valid JSON, no other text.`;
+
+      await append({
+        role: "user",
+        content: prompt,
+      });
+    } catch (error) {
+      console.error("Error parsing text:", error);
+      toast.error("Failed to parse text. Please try again.");
+      setIsParsing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -218,79 +306,134 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         <h1 className="text-2xl font-bold">{form.title}</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto space-y-4">
-        <Card>
-          <CardContent className="p-0">
-            <div className="h-[600px] flex flex-col">
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`p-4 rounded-lg ${
-                        message.role === "system"
-                          ? "bg-primary/10"
-                          : "bg-white border"
-                      }`}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Chat Interface */}
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-0">
+              <div className="h-[600px] flex flex-col">
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`p-4 rounded-lg ${
+                          message.role === "system"
+                            ? "bg-primary/10"
+                            : "bg-white border"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </div>
+                <div className="p-4 border-t">
+                  <form onSubmit={handleSubmit} className="flex gap-2">
+                    <Input
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder={
+                        currentPromptIndex < form.prompts.length
+                          ? "Type your answer here..."
+                          : "All questions answered!"
+                      }
+                      className="flex-1"
+                      disabled={currentPromptIndex >= form.prompts.length}
+                    />
+                    <Button
+                      type="submit"
+                      disabled={
+                        !input.trim() ||
+                        currentPromptIndex >= form.prompts.length
+                      }
                     >
-                      <p className="text-sm whitespace-pre-wrap">
-                        {message.content}
-                      </p>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
+                      <Send className="mr-2 h-4 w-4" />
+                      Next
+                    </Button>
+                  </form>
                 </div>
-              </div>
-              <div className="p-4 border-t">
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={
-                      currentPromptIndex < form.prompts.length
-                        ? "Type your answer here..."
-                        : "All questions answered!"
-                    }
-                    className="flex-1"
-                    disabled={currentPromptIndex >= form.prompts.length}
-                  />
-                  <Button
-                    type="submit"
-                    disabled={
-                      !input.trim() || currentPromptIndex >= form.prompts.length
-                    }
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    Next
-                  </Button>
-                </form>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {currentPromptIndex >= form.prompts.length && (
-          <Card className="bg-primary/5 border-primary">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Ready to submit?</h3>
-                  <p className="text-sm text-gray-500">
-                    You've answered all {form.prompts.length} questions
-                  </p>
-                </div>
-                <Button
-                  onClick={handleFinalSubmit}
-                  disabled={submitting}
-                  className="bg-primary"
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  {submitting ? "Submitting..." : "Submit Responses"}
-                </Button>
               </div>
             </CardContent>
           </Card>
-        )}
+
+          {currentPromptIndex >= form.prompts.length && (
+            <Card className="bg-primary/5 border-primary">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Ready to submit?</h3>
+                    <p className="text-sm text-gray-500">
+                      You've answered all {form.prompts.length} questions
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleFinalSubmit}
+                    disabled={submitting}
+                    className="bg-primary"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {submitting ? "Submitting..." : "Submit Responses"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Manual Form Input */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Manual Form Input</CardTitle>
+              <CardDescription>
+                Fill out the form manually or use AI to extract answers from
+                text
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Textarea
+                  value={paragraphInput}
+                  onChange={(e) => setParagraphInput(e.target.value)}
+                  placeholder="Paste a paragraph of text to automatically extract answers..."
+                  rows={4}
+                  className="mb-4"
+                />
+                <Button
+                  onClick={handleParseParagraph}
+                  disabled={isParsing || !paragraphInput.trim()}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isParsing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-2 h-4 w-4" />
+                  )}
+                  Extract Answers from Text
+                </Button>
+              </div>
+
+              {form?.prompts.map((prompt, index) => (
+                <div key={index} className="space-y-2">
+                  <label className="text-sm font-medium">{prompt}</label>
+                  <Textarea
+                    value={answers[prompt] || ""}
+                    onChange={(e) =>
+                      setAnswers({ ...answers, [prompt]: e.target.value })
+                    }
+                    placeholder="Enter your answer..."
+                    rows={3}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
