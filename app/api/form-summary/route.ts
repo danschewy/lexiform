@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     console.log("Processing message:", lastMessage.content);
 
     const stream = await streamText({
-      model: openai("gpt-4"),
+      model: openai("gpt-4o-mini"),
       prompt: lastMessage.content,
       system: `You are a data analyst specializing in form response analysis. Your role is to:
 

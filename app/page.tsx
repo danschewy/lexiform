@@ -22,7 +22,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <MessageSquare className="h-6 w-6 text-primary mr-2" />
-            <span className="font-bold text-xl">ChatForms</span>
+            <span className="font-bold text-xl">LexiForm</span>
           </div>
           <div className="flex items-center gap-4">
             {user ? (
@@ -58,7 +58,7 @@ export default function LandingPage() {
         <section className="py-20 px-4">
           <div className="container mx-auto max-w-5xl text-center">
             <Badge className="mb-4 px-3 py-1 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
-              Introducing ChatForms
+              Introducing LexiForm
             </Badge>
             <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
               AI-native forms that are{" "}
@@ -99,7 +99,7 @@ export default function LandingPage() {
         <section className="py-20 px-4 bg-gray-50">
           <div className="container mx-auto max-w-6xl">
             <h2 className="text-3xl font-bold text-center mb-12">
-              Why choose ChatForms?
+              Why choose LexiForm?
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -145,7 +145,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-xl mb-8 opacity-90">
               Join thousands of users who are getting better responses with
-              ChatForms.
+              LexiForm.
             </p>
             {user ? (
               <Link href="/dashboard">
@@ -174,7 +174,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <p className="text-gray-600 mb-4">
-                  "ChatForms has completely changed how we collect customer
+                  "LexiForm has completely changed how we collect customer
                   feedback. Our response rates have increased by 40% since
                   switching!"
                 </p>
@@ -190,7 +190,7 @@ export default function LandingPage() {
               </div>
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <p className="text-gray-600 mb-4">
-                  "Setting up surveys used to take hours. With ChatForms, I can
+                  "Setting up surveys used to take hours. With LexiForm, I can
                   create engaging forms in minutes. The conversational format
                   gets us much better insights."
                 </p>
@@ -214,7 +214,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-6 md:mb-0">
               <MessageSquare className="h-5 w-5 text-primary mr-2" />
-              <span className="font-bold">ChatForms</span>
+              <span className="font-bold">LexiForm</span>
             </div>
             <div className="flex gap-6">
               <Link href="#" className="text-gray-600 hover:text-primary">
@@ -232,7 +232,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} ChatForms. All rights reserved.
+            &copy; {new Date().getFullYear()} LexiForm. All rights reserved.
           </div>
         </div>
       </footer>

@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Send, Edit2, Wand2, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Edit2, Wand2, Loader2, Check } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,6 @@ import { toast } from "sonner";
 import type { Database } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
 
@@ -75,10 +74,8 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [paragraphInput, setParagraphInput] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("chat");
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -251,58 +248,6 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     }
   };
 
-  const handleParseParagraph = async () => {
-    if (!form || !paragraphInput.trim()) return;
-
-    setIsParsing(true);
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              id: generateUniqueId(),
-              role: "system",
-              content: `Parse the following text into answers for the form questions. Return a JSON object with the answers array.`,
-            },
-            {
-              id: generateUniqueId(),
-              role: "user",
-              content: paragraphInput,
-            },
-          ],
-          formData: form,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to parse text");
-      }
-
-      const data = await response.json();
-      const parsed = JSON.parse(data.message) as ParsedAnswers;
-
-      if (
-        Array.isArray(parsed.answers) &&
-        parsed.answers.length === form.prompts.length
-      ) {
-        setAnswers(parsed.answers);
-        setParagraphInput("");
-        toast.success("Answers extracted successfully!");
-      } else {
-        throw new Error("Invalid response format");
-      }
-    } catch (error) {
-      console.error("Error parsing text:", error);
-      toast.error("Failed to parse text");
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
   // Add function to check if all questions are answered
   const areAllQuestionsAnswered = () => {
     if (!form) return false;
@@ -325,140 +270,123 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     );
   }
 
-  if (submitted) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <h2 className="text-2xl font-bold">Thank you!</h2>
-              <p className="text-gray-600">Your response has been recorded.</p>
-              <Link href="/">
-                <Button>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Home
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center mb-6">
-        <Link href="/">
-          <Button variant="ghost" size="icon" className="mr-2">
+      <div className="mb-8 flex items-center gap-4">
+        <Link href={`/forms/${id}`}>
+          <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">{form.title}</h1>
+        <h1 className="text-2xl font-bold">{form?.title}</h1>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="chat">Chat Interface</TabsTrigger>
-          <TabsTrigger value="manual">Manual Input</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="chat">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Chat Interface */}
-            <div className="space-y-4">
-              <ScrollArea className="h-[500px] rounded-md border p-4">
-                {messages.map((message) => (
+      {submitted ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <Check className="h-6 w-6 text-green-600" />
+              </div>
+              <h2 className="text-xl font-semibold">
+                Thank you for your response!
+              </h2>
+              <p className="text-muted-foreground">
+                Your answers have been submitted successfully.
+              </p>
+              <Button asChild>
+                <Link href={`/forms/${id}`}>Return to Form</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Chat Interface */}
+          <div className="space-y-4">
+            <ScrollArea className="h-[500px] rounded-md border p-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`mb-4 ${
+                    message.role === "user" ? "text-right" : "text-left"
+                  }`}
+                >
                   <div
-                    key={message.id}
-                    className={`mb-4 ${
-                      message.role === "user" ? "text-right" : "text-left"
+                    className={`inline-block p-3 rounded-lg ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
                     }`}
                   >
-                    <div
-                      className={`inline-block p-3 rounded-lg ${
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      {message.content}
-                    </div>
+                    {message.content}
                   </div>
-                ))}
-              </ScrollArea>
-              <form onSubmit={handleSubmit} className="flex gap-2">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Describe your answers or make changes..."
-                  disabled={isParsing}
-                />
-                <Button type="submit" disabled={isParsing}>
-                  {isParsing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Send
-                </Button>
-              </form>
-            </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </ScrollArea>
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Describe your answers or make changes..."
+                disabled={isParsing}
+              />
+              <Button type="submit" disabled={isParsing}>
+                {isParsing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Send
+              </Button>
+            </form>
+          </div>
 
-            {/* Answers Preview */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Your Answers</Label>
-                {form.prompts.map((prompt, index) => (
-                  <div key={index} className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">
-                      {prompt}
-                    </Label>
+          {/* Answers Preview with Manual Input */}
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Answers</CardTitle>
+                <CardDescription>
+                  Review and edit your responses
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {form?.prompts.map((prompt, index) => (
+                  <div key={index}>
+                    <Label>{prompt}</Label>
                     <Textarea
                       value={answers[index] || ""}
-                      readOnly
-                      placeholder="Your answer will appear here"
+                      onChange={(e) => {
+                        const newAnswers = [...answers];
+                        newAnswers[index] = e.target.value;
+                        setAnswers(newAnswers);
+                      }}
+                      placeholder="Type your answer here..."
+                      className="mt-1.5"
                     />
                   </div>
                 ))}
-              </div>
-              <Button
-                onClick={handleFinalSubmit}
-                disabled={!areAllQuestionsAnswered() || submitting}
-                className="w-full"
-              >
-                {submitting ? "Submitting..." : "Submit Responses"}
-              </Button>
-            </div>
+                <Button
+                  className="w-full"
+                  onClick={handleFinalSubmit}
+                  disabled={!areAllQuestionsAnswered() || submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Answers"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="manual">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Manual Input</Label>
-              <Textarea
-                value={paragraphInput}
-                onChange={(e) => setParagraphInput(e.target.value)}
-                placeholder="Enter your response here..."
-                rows={10}
-              />
-            </div>
-            <Button
-              onClick={handleParseParagraph}
-              disabled={isParsing || !paragraphInput.trim()}
-              className="w-full"
-            >
-              {isParsing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-              )}
-              Extract Answers from Text
-            </Button>
-          </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

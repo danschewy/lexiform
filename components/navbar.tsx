@@ -31,7 +31,7 @@ export default function Navbar() {
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <Link href="/dashboard" className="flex items-center">
           <MessageSquare className="h-6 w-6 text-primary mr-2" />
-          <span className="font-bold text-xl">ChatForms</span>
+          <span className="font-bold text-xl">LexiForm</span>
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6">
