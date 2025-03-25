@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label";
 import { signUp, SignUpState } from "./actions";
 import { useFormStatus } from "react-dom";
 import { useActionState } from "react";
+import { Suspense } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -68,34 +76,34 @@ function SignUpForm() {
   );
 }
 
-export default function Page({
-  searchParams,
-}: {
-  searchParams: { redirectTo?: string };
-}) {
+function LoadingState() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="space-y-6">
-            <div className="space-y-2 text-center">
-              <h1 className="text-3xl font-bold">Create an account</h1>
-              <p className="text-muted-foreground">
-                Sign up to start creating AI-powered forms
-              </p>
-            </div>
-
-            <SignUpForm />
-
-            <div className="text-center text-sm">
-              Already have an account?{" "}
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </div>
-          </div>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+        <CardDescription>
+          Enter your email below to create your account
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="h-10 bg-muted animate-pulse rounded-md" />
+          <div className="h-10 bg-muted animate-pulse rounded-md" />
+          <div className="h-10 bg-muted animate-pulse rounded-md" />
         </div>
-      </main>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <div className="container relative flex h-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <Suspense fallback={<LoadingState />}>
+          <SignUpForm />
+        </Suspense>
+      </div>
     </div>
   );
 }
