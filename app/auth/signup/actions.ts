@@ -30,7 +30,11 @@ export async function signUp(
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        emailRedirectTo: `${
+          process.env.NEXT_PUBLIC_SITE_URL
+        }/auth/callback?redirectTo=${encodeURIComponent(
+          redirectTo || "/dashboard"
+        )}`,
       },
     });
 
@@ -43,9 +47,7 @@ export async function signUp(
     // Return success state with redirect URL
     return {
       success: true,
-      redirectTo:
-        redirectTo ||
-        "/auth/login?message=Check your email to confirm your account",
+      redirectTo: redirectTo || "/dashboard",
     };
   } catch (error) {
     return {

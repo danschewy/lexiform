@@ -29,7 +29,7 @@ export default function MyResponsesPage() {
 
         if (!currentUser) {
           console.log("No user found, redirecting to login");
-          router.push("/login");
+          router.push("/auth/login");
           return;
         }
 

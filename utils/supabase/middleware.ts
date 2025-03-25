@@ -43,10 +43,13 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/auth/");
 
   if (!user && !isPublicPage) {
-    // no user, redirect to login page
+    // no user, redirect to login page with the original URL as redirectTo
     const url = request.nextUrl.clone();
+    console.log("Original URL:", request.nextUrl.pathname);
     url.pathname = "/auth/login";
-    console.log("redirecting to login...");
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
+    console.log("Original URL:", request.nextUrl.pathname);
+    console.log("Redirect URL:", url.toString());
     return NextResponse.redirect(url);
   }
 

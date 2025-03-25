@@ -225,7 +225,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
       if (!userId && !form.allow_anonymous) {
         const returnUrl = encodeURIComponent(window.location.pathname);
-        router.push(`/login?redirect=${returnUrl}`);
+        router.push(`/auth/login?redirectTo=${returnUrl}`);
         setSubmitting(false);
         return;
       }
