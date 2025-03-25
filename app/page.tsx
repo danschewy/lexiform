@@ -41,10 +41,10 @@ export default function LandingPage() {
               </>
             ) : (
               <>
-                <Link href="/login">
+                <Link href="/auth/login">
                   <Button variant="ghost">Log in</Button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/auth/signup">
                   <Button>Sign up</Button>
                 </Link>
               </>
@@ -78,7 +78,7 @@ export default function LandingPage() {
                 </Link>
               ) : (
                 <>
-                  <Link href="/signup">
+                  <Link href="/auth/signup">
                     <Button size="lg" className="px-8">
                       Get started for free
                       <ArrowRight className="ml-2 h-4 w-4" />

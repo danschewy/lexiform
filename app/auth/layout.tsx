@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -8,9 +9,10 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b">
-        <div className="container flex h-16 items-center">
-          <Link href="/" className="text-2xl font-bold">
-            AI Forms
+        <div className="container flex h-16 items-center px-4">
+          <Link href="/" className="flex items-center">
+            <MessageSquare className="h-6 w-6 text-primary mr-2" />
+            <span className="font-bold text-xl">LexiForm</span>
           </Link>
         </div>
       </header>
