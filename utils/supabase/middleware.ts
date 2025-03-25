@@ -37,11 +37,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow access to auth pages and homepage without redirection
-  const isAuthPage = request.nextUrl.pathname.startsWith("/auth/");
-  const isHomePage = request.nextUrl.pathname === "/";
+  // Allow access to public pages without redirection
+  const isPublicPage =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/auth/");
 
-  if (!user && !isAuthPage && !isHomePage) {
+  if (!user && !isPublicPage) {
     // no user, redirect to login page
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
