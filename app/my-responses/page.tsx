@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageSquare } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import PageWrapper from "@/components/page-wrapper";
 import { useAuth } from "@/components/auth-provider";
+import { supabase } from "@/lib/supabase";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -19,7 +19,6 @@ export default function MyResponsesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {

@@ -17,10 +17,9 @@ import { useAuth } from "@/components/auth-provider";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
-import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-
+import { supabase } from "@/lib/supabase";
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 
 // If the Database type doesn't include allow_anonymous yet, add it manually

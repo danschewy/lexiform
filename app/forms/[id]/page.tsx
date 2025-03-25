@@ -24,7 +24,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import type { Database } from "@/lib/supabase";
 import {
@@ -41,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];

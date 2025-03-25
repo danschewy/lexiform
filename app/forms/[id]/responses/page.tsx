@@ -4,28 +4,13 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  ArrowLeft,
-  FileText,
-  User,
-  Loader2,
-  Sparkles,
-  MessageSquare,
-  Wand2,
-} from "lucide-react";
+import { ArrowLeft, FileText, User, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/components/auth-provider";
 import PageWrapper from "@/components/page-wrapper";

@@ -22,7 +22,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
-import { createClient } from "@/utils/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import {
   Select,
@@ -37,7 +37,6 @@ type Template = Database["public"]["Tables"]["templates"]["Row"];
 
 export default function NewFormPage() {
   const router = useRouter();
-  const supabase = createClient();
   const { user } = useAuth();
   const [title, setTitle] = useState("Untitled Form");
   const [description, setDescription] = useState("");
@@ -146,10 +145,10 @@ export default function NewFormPage() {
       }
 
       const { error } = await supabase.from("forms").insert({
+        user_id: user.id,
         title,
         description,
         prompts: prompts.map((p) => p.text),
-        user_id: user.id,
         is_active: true,
       });
 

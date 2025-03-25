@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { Suspense, use, useActionState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
 import {
   Card,
   CardHeader,
@@ -16,91 +12,70 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Separator } from "@radix-ui/react-dropdown-menu";
-import { MessageSquare, ArrowRight } from "lucide-react";
+import { login, LoginState } from "./actions";
+import { useFormStatus } from "react-dom";
+import { useSearchParams, useRouter } from "next/navigation";
 
-// Separate component for handling search params
-function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const redirectTo = searchParams.get("redirectedFrom") || "/dashboard";
-        router.push(redirectTo);
-      }
-    });
-  }, [router, searchParams]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-
-      const redirectTo = searchParams.get("redirectedFrom") || "/dashboard";
-      router.push(redirectTo);
-      router.refresh();
-    } catch (error) {
-      console.error("Login error:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function SubmitButton() {
+  const { pending } = useFormStatus();
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="name@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
-          <Link
-            href="/forgot-password"
-            className="text-sm text-primary hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
-      {error && <div className="text-sm text-red-500">{error}</div>}
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Logging in..." : "Log in"}
-        {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
-      </Button>
-    </form>
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? "Signing in..." : "Sign In"}
+    </Button>
   );
 }
 
-export default function LoginPage() {
+function LoginForm() {
+  const [state, formAction] = useActionState<LoginState, FormData>(login, null);
+  const redirectTo = useSearchParams().get("redirectTo");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success && state.redirectTo) {
+      router.push(state.redirectTo);
+    }
+  }, [state, router]);
+
+  return (
+    <div className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2">
+      <form
+        action={formAction}
+        className="animate-in flex-1 flex flex-col w-full justify-center gap-2 text-foreground"
+      >
+        <input type="hidden" name="redirectTo" value={redirectTo ?? ""} />
+        <label className="text-md" htmlFor="email">
+          Email
+        </label>
+        <input
+          className="rounded-md px-4 py-2 bg-inherit border mb-6"
+          name="email"
+          placeholder="you@example.com"
+          required
+        />
+        <label className="text-md" htmlFor="password">
+          Password
+        </label>
+        <input
+          className="rounded-md px-4 py-2 bg-inherit border mb-6"
+          type="password"
+          name="password"
+          placeholder="••••••••"
+          required
+        />
+        {state?.error && (
+          <p className="text-sm text-red-500 mb-4">{state.error}</p>
+        )}
+        <SubmitButton />
+      </form>
+    </div>
+  );
+}
+
+export default function Page({
+  searchParams,
+}: {
+  searchParams: { redirectTo?: string };
+}) {
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex items-center justify-center p-4">

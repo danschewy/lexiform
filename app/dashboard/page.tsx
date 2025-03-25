@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, BarChart3, ChevronDown } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { PlusCircle, BarChart3 } from "lucide-react";
 import type { Database } from "@/lib/supabase";
 import PageWrapper from "@/components/page-wrapper";
+import { supabase } from "@/lib/supabase";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 type Response = Database["public"]["Tables"]["responses"]["Row"];
@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const [forms, setForms] = useState<Form[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFormId, setSelectedFormId] = useState<string>("all");
   const router = useRouter();
 
   useEffect(() => {
