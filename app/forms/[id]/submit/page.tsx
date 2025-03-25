@@ -16,10 +16,13 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useChat } from "@ai-sdk/react";
 import type { Database } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { createClient } from "@/utils/supabase/client";
+
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 
 // If the Database type doesn't include allow_anonymous yet, add it manually
@@ -27,11 +30,11 @@ interface EnhancedForm extends Form {
   allow_anonymous?: boolean;
 }
 
-type Message = {
+interface Message {
   id: string;
-  role: "system" | "user";
+  role: "system" | "user" | "assistant";
   content: string;
-};
+}
 
 interface SubmitPageProps {
   params: Promise<{
@@ -43,72 +46,44 @@ const generateUniqueId = () => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
+interface FormData {
+  id: string;
+  title: string;
+  description: string;
+  prompts: string[];
+  allow_anonymous: boolean;
+}
+
+interface ResponseData {
+  form_id: string;
+  user_id: string;
+  answers: string[];
+}
+
+interface ParsedAnswers {
+  answers: string[];
+}
+
 export default function SubmitPage({ params }: SubmitPageProps) {
   const { id } = use(params);
   const { user } = useAuth();
   const [form, setForm] = useState<EnhancedForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [paragraphInput, setParagraphInput] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const router = useRouter();
-
-  const {
-    messages: aiMessages,
-    append,
-    status,
-  } = useChat({
-    api: "/api/chat",
-    onFinish: (message) => {
-      try {
-        const parsedAnswers = JSON.parse(message.content);
-
-        // Update answers with parsed values
-        const newAnswers = { ...answers };
-        Object.entries(parsedAnswers).forEach(([question, answer]) => {
-          if (answer !== null) {
-            newAnswers[question] = answer as string;
-          }
-        });
-        setAnswers(newAnswers);
-
-        // Update the chat interface to show the extracted answers
-        const newMessages = [...messages];
-        Object.entries(parsedAnswers).forEach(([question, answer]) => {
-          if (answer !== null) {
-            newMessages.push({
-              id: generateUniqueId(),
-              role: "user",
-              content: answer as string,
-            });
-          }
-        });
-        setMessages(newMessages);
-
-        toast.success("Answers extracted from text!");
-      } catch (error) {
-        console.error("Error parsing AI response:", error);
-        toast.error("Failed to parse text. Please try again.");
-      } finally {
-        setIsParsing(false);
-      }
-    },
-    onError: (error) => {
-      console.error("Chat error:", error);
-      toast.error("Failed to parse text. Please try again.");
-      setIsParsing(false);
-    },
-  });
+  const [activeTab, setActiveTab] = useState("chat");
 
   useEffect(() => {
     const fetchForm = async () => {
       try {
+        const supabase = createClient();
         const { data, error } = await supabase
           .from("forms")
           .select("*")
@@ -117,29 +92,26 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
         if (error) throw error;
         setForm(data);
+        setAnswers(new Array(data.prompts.length).fill(""));
       } catch (error) {
         console.error("Error fetching form:", error);
+        toast.error("Failed to load form");
       } finally {
         setLoading(false);
       }
     };
 
     fetchForm();
-  }, [id, supabase]);
+  }, [id]);
 
-  // Initialize chat with first question
+  // Initialize chat with welcome message
   useEffect(() => {
-    if (form && form.prompts.length > 0 && messages.length === 0) {
+    if (form && messages.length === 0) {
       setMessages([
         {
           id: "welcome",
           role: "system",
-          content: `👋 Welcome! I'll help you fill out "${form.title}". Let's get started with the first question:`,
-        },
-        {
-          id: "q1",
-          role: "system",
-          content: form.prompts[0],
+          content: `👋 Welcome! I'll help you fill out "${form.title}". You can describe your answers in natural language, and I'll help format them appropriately. Feel free to ask for changes or clarifications at any time.`,
         },
       ]);
     }
@@ -156,51 +128,91 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form || !input.trim()) return;
+    if (!input.trim() || isParsing || !form) return;
 
-    // Add user's answer to messages
-    const newMessages = [
-      ...messages,
-      {
-        id: generateUniqueId(),
-        role: "user" as const,
-        content: input,
-      },
-    ];
-
-    // Save the answer
-    const currentPrompt = form.prompts[currentPromptIndex];
-    setAnswers({
-      ...answers,
-      [currentPrompt]: input,
-    });
-
-    // Clear input
+    const userMessage = input.trim();
     setInput("");
+    setMessages((prev) => [
+      ...prev,
+      { id: generateUniqueId(), role: "user", content: userMessage },
+    ]);
+    setIsParsing(true);
 
-    // Always increment the currentPromptIndex
-    const nextIndex = currentPromptIndex + 1;
-    setCurrentPromptIndex(nextIndex);
+    try {
+      const response = await fetch("/api/form-submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            ...messages,
+            { id: generateUniqueId(), role: "user", content: userMessage },
+          ],
+          formData: form,
+          currentAnswers: answers,
+        }),
+      });
 
-    // If there are more questions, add the next one
-    if (nextIndex < form.prompts.length) {
-      const nextPrompt = form.prompts[nextIndex];
-      newMessages.push({
-        id: `q${nextIndex + 1}`,
-        role: "system" as const,
-        content: nextPrompt,
-      });
-    } else {
-      // If this was the last question, show submit message
-      newMessages.push({
-        id: "final",
-        role: "system" as const,
-        content:
-          "✅ All questions answered! Click the Submit button below to finish.",
-      });
+      if (!response.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      const data = await response.json();
+      const assistantMessage = data.message;
+
+      // Check if the message contains valid JSON in the expected format
+      try {
+        const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonStr = jsonMatch[0];
+          const parsed = JSON.parse(jsonStr) as ParsedAnswers;
+
+          // Validate the structure
+          if (
+            Array.isArray(parsed.answers) &&
+            parsed.answers.length === form.prompts.length
+          ) {
+            const newAnswers = parsed.answers.map(
+              (answer, index) => answer || answers[index] || ""
+            );
+            setAnswers(newAnswers);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: generateUniqueId(),
+                role: "assistant",
+                content: "Answers updated successfully!",
+              },
+            ]);
+          }
+        } else {
+          // If no JSON found, just add the message
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: generateUniqueId(),
+              role: "assistant",
+              content: assistantMessage,
+            },
+          ]);
+        }
+      } catch (error) {
+        // If JSON parsing fails, just add the message
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateUniqueId(),
+            role: "assistant",
+            content: assistantMessage,
+          },
+        ]);
+      }
+    } catch (error) {
+      toast.error("Failed to get response");
+    } finally {
+      setIsParsing(false);
     }
-
-    setMessages(newMessages);
   };
 
   const handleFinalSubmit = async () => {
@@ -208,92 +220,85 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
     setSubmitting(true);
     try {
-      // Get the current user's ID and email
+      const supabase = createClient();
       const {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
       let userId = currentUser?.id;
-      let userEmail = currentUser?.email;
 
-      console.log("Current user:", currentUser);
-
-      // If no user is logged in, check if anonymous submissions are allowed
-      if (!userId) {
-        if (form.allow_anonymous === true) {
-          console.log("No user found, but anonymous submissions are allowed");
-          console.log("Creating anonymous session");
-          const {
-            data: { user: anonUser },
-            error: signInError,
-          } = await supabase.auth.signUp({
-            email: `anonymous-${Date.now()}@example.com`,
-            password: crypto.randomUUID(),
-          });
-          if (signInError) throw signInError;
-          userId = anonUser?.id;
-          userEmail = anonUser?.email;
-          console.log("Created anonymous user:", anonUser);
-        } else {
-          console.log(
-            "Anonymous submissions not allowed. Redirecting to login."
-          );
-          // Redirect to login page with redirect back to this form
-          const returnUrl = encodeURIComponent(window.location.pathname);
-          router.push(`/login?redirect=${returnUrl}`);
-          setSubmitting(false);
-          return;
-        }
+      if (!userId && !form.allow_anonymous) {
+        const returnUrl = encodeURIComponent(window.location.pathname);
+        router.push(`/login?redirect=${returnUrl}`);
+        setSubmitting(false);
+        return;
       }
 
-      console.log("Submitting response with:", {
-        userId,
-        userEmail,
-        formId: id,
-      });
+      const responseData: ResponseData = {
+        form_id: id,
+        user_id: userId || "anonymous",
+        answers,
+      };
 
-      const { data, error } = await supabase
-        .from("responses")
-        .insert({
-          form_id: id,
-          answers,
-          user_id: userId,
-          email: userEmail,
-        })
-        .select();
+      const { error } = await supabase.from("responses").insert(responseData);
 
       if (error) throw error;
-      console.log("Response submitted successfully:", data);
       setSubmitted(true);
     } catch (error) {
       console.error("Error submitting response:", error);
-      alert("Failed to submit response. Please try again.");
+      toast.error("Failed to submit response");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleParseParagraph = async () => {
-    if (!paragraphInput.trim()) return;
+    if (!form || !paragraphInput.trim()) return;
 
     setIsParsing(true);
     try {
-      const prompt = `Extract answers to these form questions from the following text. Return a JSON object with the question as the key and the answer as the value. If an answer isn't found, use null.
-
-Questions:
-${form?.prompts.map((q: string, i: number) => `${i + 1}. ${q}`).join("\n")}
-
-Text to parse:
-${paragraphInput}
-
-Return only valid JSON, no other text.`;
-
-      await append({
-        role: "user",
-        content: prompt,
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              id: generateUniqueId(),
+              role: "system",
+              content: `Parse the following text into answers for the form questions. Return a JSON object with the answers array.`,
+            },
+            {
+              id: generateUniqueId(),
+              role: "user",
+              content: paragraphInput,
+            },
+          ],
+          formData: form,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to parse text");
+      }
+
+      const data = await response.json();
+      const parsed = JSON.parse(data.message) as ParsedAnswers;
+
+      if (
+        Array.isArray(parsed.answers) &&
+        parsed.answers.length === form.prompts.length
+      ) {
+        setAnswers(parsed.answers);
+        setParagraphInput("");
+        toast.success("Answers extracted successfully!");
+      } else {
+        throw new Error("Invalid response format");
+      }
     } catch (error) {
       console.error("Error parsing text:", error);
-      toast.error("Failed to parse text. Please try again.");
+      toast.error("Failed to parse text");
+    } finally {
       setIsParsing(false);
     }
   };
@@ -301,10 +306,7 @@ Return only valid JSON, no other text.`;
   // Add function to check if all questions are answered
   const areAllQuestionsAnswered = () => {
     if (!form) return false;
-    return form.prompts.every((prompt) => {
-      const answer = answers[prompt];
-      return answer && answer.trim().length > 0;
-    });
+    return answers.every((answer) => answer && answer.trim().length > 0);
   };
 
   if (loading) {
@@ -355,158 +357,108 @@ Return only valid JSON, no other text.`;
         <h1 className="text-2xl font-bold">{form.title}</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Chat Interface */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-0">
-              <div className="h-[600px] flex flex-col">
-                <div className="flex-1 overflow-y-auto p-4">
-                  <div className="space-y-4">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`p-4 rounded-lg ${
-                          message.role === "system"
-                            ? "bg-primary/10"
-                            : "bg-white border"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </div>
-                <div className="p-4 border-t">
-                  <form onSubmit={handleSubmit} className="flex gap-2">
-                    <Input
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder={
-                        currentPromptIndex < form.prompts.length
-                          ? "Type your answer here..."
-                          : "All questions answered!"
-                      }
-                      className="flex-1"
-                      disabled={currentPromptIndex >= form.prompts.length}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={
-                        !input.trim() ||
-                        currentPromptIndex >= form.prompts.length
-                      }
-                    >
-                      <Send className="mr-2 h-4 w-4" />
-                      Next
-                    </Button>
-                  </form>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="chat">Chat Interface</TabsTrigger>
+          <TabsTrigger value="manual">Manual Input</TabsTrigger>
+        </TabsList>
 
-          {currentPromptIndex >= form.prompts.length && (
-            <Card className="bg-primary/5 border-primary">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Ready to submit?</h3>
-                    <p className="text-sm text-gray-500">
-                      You've answered all {form.prompts.length} questions
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleFinalSubmit}
-                    disabled={submitting}
-                    className="bg-primary"
+        <TabsContent value="chat">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Chat Interface */}
+            <div className="space-y-4">
+              <ScrollArea className="h-[500px] rounded-md border p-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`mb-4 ${
+                      message.role === "user" ? "text-right" : "text-left"
+                    }`}
                   >
-                    <Send className="mr-2 h-4 w-4" />
-                    {submitting ? "Submitting..." : "Submit Responses"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Manual Form Input */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Manual Form Input</CardTitle>
-              <CardDescription>
-                Fill out the form manually or use AI to extract answers from
-                text
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Textarea
-                  value={paragraphInput}
-                  onChange={(e) => setParagraphInput(e.target.value)}
-                  placeholder="Paste a paragraph of text to automatically extract answers..."
-                  rows={4}
-                  className="mb-4"
+                    <div
+                      className={`inline-block p-3 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+              </ScrollArea>
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Describe your answers or make changes..."
+                  disabled={isParsing}
                 />
-                <Button
-                  onClick={handleParseParagraph}
-                  disabled={isParsing || !paragraphInput.trim()}
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button type="submit" disabled={isParsing}>
                   {isParsing ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Wand2 className="mr-2 h-4 w-4" />
+                    <Send className="mr-2 h-4 w-4" />
                   )}
-                  Extract Answers from Text
+                  Send
                 </Button>
+              </form>
+            </div>
+
+            {/* Answers Preview */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Your Answers</Label>
+                {form.prompts.map((prompt, index) => (
+                  <div key={index} className="space-y-1">
+                    <Label className="text-sm text-muted-foreground">
+                      {prompt}
+                    </Label>
+                    <Textarea
+                      value={answers[index] || ""}
+                      readOnly
+                      placeholder="Your answer will appear here"
+                    />
+                  </div>
+                ))}
               </div>
+              <Button
+                onClick={handleFinalSubmit}
+                disabled={!areAllQuestionsAnswered() || submitting}
+                className="w-full"
+              >
+                {submitting ? "Submitting..." : "Submit Responses"}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
 
-              {form?.prompts.map((prompt: string, index: number) => (
-                <div key={index} className="space-y-2">
-                  <label className="text-sm font-medium">{prompt}</label>
-                  <Textarea
-                    value={answers[prompt] || ""}
-                    onChange={(e) =>
-                      setAnswers({ ...answers, [prompt]: e.target.value })
-                    }
-                    placeholder="Enter your answer..."
-                    rows={3}
-                  />
-                </div>
-              ))}
-
-              {areAllQuestionsAnswered() && (
-                <Card className="bg-primary/5 border-primary mt-6">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Ready to submit?</h3>
-                        <p className="text-sm text-gray-500">
-                          You've answered all {form?.prompts.length} questions
-                        </p>
-                      </div>
-                      <Button
-                        onClick={handleFinalSubmit}
-                        disabled={submitting}
-                        className="bg-primary"
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        {submitting ? "Submitting..." : "Submit Responses"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+        <TabsContent value="manual">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Manual Input</Label>
+              <Textarea
+                value={paragraphInput}
+                onChange={(e) => setParagraphInput(e.target.value)}
+                placeholder="Enter your response here..."
+                rows={10}
+              />
+            </div>
+            <Button
+              onClick={handleParseParagraph}
+              disabled={isParsing || !paragraphInput.trim()}
+              className="w-full"
+            >
+              {isParsing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
               )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              Extract Answers from Text
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
