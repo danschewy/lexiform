@@ -136,7 +136,7 @@ export default function ResponsePage({ params }: ResponsePageProps) {
             <div className="space-y-6">
               {Object.entries(response.answers).map(([question, answer]) => (
                 <div key={question} className="border-b pb-4 last:border-0">
-                  <h3 className="font-medium mb-2">
+                  <h3 className="mb-2 font-semibold">
                     {form?.prompts[question as unknown as number]}
                   </h3>
                   <p className="text-gray-600">{answer}</p>
