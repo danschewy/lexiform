@@ -127,7 +127,9 @@ export default function MyResponsesPage() {
                 </div>
                 {firstAnswer && (
                   <div className="mt-2 p-3 bg-muted/50 rounded-md">
-                    <p className="text-sm font-medium">{firstAnswer[0]}</p>
+                    <p className="text-sm font-medium">
+                      {form?.prompts[firstAnswer[0] as unknown as number]}
+                    </p>
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                       {firstAnswer[1]}
                     </p>
