@@ -291,20 +291,11 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex items-center gap-4">
-        <Link href={`/forms/${id}`}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <h1 className="text-2xl font-bold">{form?.title}</h1>
-      </div>
-
-      <Card>
+      <Card className="mb-4">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{form.title}</CardTitle>
+              <CardTitle className="mb-2">{form.title}</CardTitle>
               <CardDescription>{form.description}</CardDescription>
             </div>
             {form.allow_anonymous && (
