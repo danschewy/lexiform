@@ -54,7 +54,6 @@ export default function DashboardPage() {
           .limit(10);
 
         if (responsesError) throw responsesError;
-        console.log("Fetched responses:", responsesData);
         setResponses(responsesData || []);
 
         setForms(formsData || []);
