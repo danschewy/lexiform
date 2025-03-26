@@ -38,7 +38,13 @@ interface FormState {
 export default function NewFormPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      content:
+        "Hi! I'm here to help you create your form. You can:\n\n1. Start from scratch by describing what you want\n2. Select a template and modify it\n3. Ask me to add or modify questions\n4. Get suggestions for improvements\n\nWhat would you like to create?",
+    },
+  ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -46,9 +52,10 @@ export default function NewFormPage() {
   const [formState, setFormState] = useState<FormState>({
     title: "",
     description: "",
-    prompts: [],
+    prompts: [""],
     allow_anonymous: false,
   });
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch templates on component mount
   useEffect(() => {
@@ -76,7 +83,7 @@ export default function NewFormPage() {
       setFormState({
         title: "",
         description: "",
-        prompts: [],
+        prompts: [""],
         allow_anonymous: false,
       });
       return;
@@ -164,7 +171,28 @@ export default function NewFormPage() {
 
   const handleCreateForm = async () => {
     if (!user) {
-      toast.error("You must be logged in to create a form");
+      setError("You must be logged in to create a form");
+      return;
+    }
+
+    // Validate form
+    if (!formState.title.trim()) {
+      setError("Please enter a form title");
+      return;
+    }
+
+    if (!formState.description.trim()) {
+      setError("Please enter a form description");
+      return;
+    }
+
+    if (!formState.prompts.length) {
+      setError("Please add at least one question");
+      return;
+    }
+
+    if (formState.prompts.some((prompt) => !prompt.trim())) {
+      setError("Please fill in all questions");
       return;
     }
 
@@ -173,7 +201,7 @@ export default function NewFormPage() {
       toast.success("Form created successfully!");
       router.push(`/forms/${formId}`);
     } catch (error) {
-      toast.error("Failed to create form");
+      setError("Failed to create form");
     }
   };
 
@@ -185,6 +213,11 @@ export default function NewFormPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            {error && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-md">
+                {error}
+              </div>
+            )}
             {/* Template Selection */}
             <div className="space-y-2">
               <Label>Template</Label>
@@ -218,7 +251,7 @@ export default function NewFormPage() {
                       }`}
                     >
                       <div
-                        className={`inline-block p-3 rounded-lg ${
+                        className={`inline-block p-3 rounded-lg whitespace-pre-wrap ${
                           message.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted"
@@ -270,7 +303,22 @@ export default function NewFormPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Questions</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Questions</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setFormState({
+                          ...formState,
+                          prompts: [...formState.prompts, ""],
+                        })
+                      }
+                    >
+                      Add Question
+                    </Button>
+                  </div>
                   <ScrollArea className="h-[200px] rounded-md border p-4">
                     {formState.prompts.map((prompt, index) => (
                       <div key={index} className="mb-4">
@@ -287,21 +335,23 @@ export default function NewFormPage() {
                             }}
                             placeholder={`Question ${index + 1}`}
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              const newPrompts = formState.prompts.filter(
-                                (_, i) => i !== index
-                              );
-                              setFormState({
-                                ...formState,
-                                prompts: newPrompts,
-                              });
-                            }}
-                          >
-                            ×
-                          </Button>
+                          {formState.prompts.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const newPrompts = formState.prompts.filter(
+                                  (_, i) => i !== index
+                                );
+                                setFormState({
+                                  ...formState,
+                                  prompts: newPrompts,
+                                });
+                              }}
+                            >
+                              ×
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}

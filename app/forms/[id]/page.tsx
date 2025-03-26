@@ -42,7 +42,16 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Form = Database["public"]["Tables"]["forms"]["Row"];
+type Form = {
+  id: string;
+  created_at: string;
+  title: string;
+  description: string | null;
+  prompts: string[];
+  user_id: string;
+  is_active: boolean;
+  allow_anonymous: boolean;
+};
 type Response = Database["public"]["Tables"]["responses"]["Row"];
 
 interface FormPageProps {
@@ -263,6 +272,12 @@ export default function FormPage({ params }: FormPageProps) {
             <div>
               <h3 className="text-sm font-medium text-gray-500">Status</h3>
               <p className="mt-1">{form.is_active ? "Active" : "Inactive"}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">
+                Allow Anonymous Submissions
+              </h3>
+              <p className="mt-1">{form.allow_anonymous ? "Yes" : "No"}</p>
             </div>
           </CardContent>
         </Card>
