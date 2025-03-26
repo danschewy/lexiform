@@ -247,6 +247,18 @@ Provide:
                     View Details
                   </Link>
                 </div>
+                <div className="space-y-4">
+                  {Object.entries(response.answers).map(
+                    ([question, answer]) => (
+                      <div key={question} className="space-y-2">
+                        <p className="font-medium">
+                          {form?.prompts[question as unknown as number]}
+                        </p>
+                        <p className="text-gray-600">{answer}</p>
+                      </div>
+                    )
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))

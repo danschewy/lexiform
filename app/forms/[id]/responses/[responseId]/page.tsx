@@ -9,7 +9,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
-import { useAuth } from "@/components/auth-provider";
 import { formatDistanceToNow } from "date-fns";
 import PageWrapper from "@/components/page-wrapper";
 
@@ -30,10 +29,13 @@ export default function ResponsePage({ params }: ResponsePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         router.push("/auth/login");
         return;
@@ -76,7 +78,7 @@ export default function ResponsePage({ params }: ResponsePageProps) {
     };
 
     fetchData();
-  }, [id, responseId, user, router]);
+  }, [id, responseId, router]);
 
   if (loading) {
     return (
@@ -92,7 +94,9 @@ export default function ResponsePage({ params }: ResponsePageProps) {
     return (
       <PageWrapper>
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-red-600">{error || "Response not found"}</div>
+          <div className="text-center text-red-600">
+            {error || "Response not found"}
+          </div>
         </div>
       </PageWrapper>
     );
@@ -107,7 +111,10 @@ export default function ResponsePage({ params }: ResponsePageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Response Details</h1>
+          <div>
+            <h1 className="text-2xl font-bold">{form.title}</h1>
+            <p className="text-sm text-gray-500">Response Details</p>
+          </div>
         </div>
 
         <Card>
@@ -129,7 +136,9 @@ export default function ResponsePage({ params }: ResponsePageProps) {
             <div className="space-y-6">
               {Object.entries(response.answers).map(([question, answer]) => (
                 <div key={question} className="border-b pb-4 last:border-0">
-                  <h3 className="font-medium mb-2">{question}</h3>
+                  <h3 className="font-medium mb-2">
+                    {form?.prompts[question as unknown as number]}
+                  </h3>
                   <p className="text-gray-600">{answer}</p>
                 </div>
               ))}

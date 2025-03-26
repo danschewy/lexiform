@@ -170,7 +170,7 @@ export default function DashboardPage() {
                       {firstAnswer && (
                         <div className="mt-2 p-3 bg-muted/50 rounded-md">
                           <p className="text-sm font-medium">
-                            {firstAnswer[0]}
+                            {form?.prompts[firstAnswer[0] as unknown as number]}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {firstAnswer[1]}
