@@ -61,6 +61,7 @@ export default function FormPage({ params }: FormPageProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const router = useRouter();
+  const [shareUrl, setShareUrl] = useState<string>("");
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -94,15 +95,17 @@ export default function FormPage({ params }: FormPageProps) {
     fetchForm();
   }, [id, supabase]);
 
-  const shareUrl = `${window.location.origin}/forms/${id}/submit`;
+  useEffect(() => {
+    setShareUrl(`${window.location.origin}/forms/${id}/submit`);
+  }, [id]);
 
-  const copyToClipboard = async () => {
+  const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       toast.success("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch (error) {
       toast.error("Failed to copy link");
     }
   };
@@ -179,7 +182,7 @@ export default function FormPage({ params }: FormPageProps) {
               </DialogHeader>
               <div className="flex gap-2">
                 <Input readOnly value={shareUrl} />
-                <Button onClick={copyToClipboard} variant="outline" size="icon">
+                <Button onClick={handleCopyLink} variant="outline" size="icon">
                   {copied ? (
                     <Check className="h-4 w-4" />
                   ) : (
