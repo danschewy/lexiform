@@ -249,8 +249,10 @@ export default function NewFormPage() {
                   <Input
                     id="title"
                     value={formState.title}
-                    readOnly
-                    placeholder="Form title will appear here"
+                    onChange={(e) =>
+                      setFormState({ ...formState, title: e.target.value })
+                    }
+                    placeholder="Enter form title"
                   />
                 </div>
                 <div className="space-y-2">
@@ -258,30 +260,71 @@ export default function NewFormPage() {
                   <Textarea
                     id="description"
                     value={formState.description}
-                    readOnly
-                    placeholder="Form description will appear here"
+                    onChange={(e) =>
+                      setFormState({
+                        ...formState,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Enter form description"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Prompts</Label>
-                  {formState.prompts.map((prompt, index) => (
-                    <div key={index} className="space-y-1">
-                      <Label className="text-sm text-muted-foreground">
-                        Prompt {index + 1}
-                      </Label>
-                      <Textarea
-                        value={prompt}
-                        readOnly
-                        placeholder={`Prompt ${index + 1} will appear here`}
-                      />
-                    </div>
-                  ))}
+                  <Label>Questions</Label>
+                  <ScrollArea className="h-[200px] rounded-md border p-4">
+                    {formState.prompts.map((prompt, index) => (
+                      <div key={index} className="mb-4">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={prompt}
+                            onChange={(e) => {
+                              const newPrompts = [...formState.prompts];
+                              newPrompts[index] = e.target.value;
+                              setFormState({
+                                ...formState,
+                                prompts: newPrompts,
+                              });
+                            }}
+                            placeholder={`Question ${index + 1}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const newPrompts = formState.prompts.filter(
+                                (_, i) => i !== index
+                              );
+                              setFormState({
+                                ...formState,
+                                prompts: newPrompts,
+                              });
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </ScrollArea>
                 </div>
-                <Button
-                  onClick={handleCreateForm}
-                  disabled={!formState.title || formState.prompts.length === 0}
-                  className="w-full"
-                >
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="allow_anonymous"
+                    checked={formState.allow_anonymous}
+                    onChange={(e) =>
+                      setFormState({
+                        ...formState,
+                        allow_anonymous: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="allow_anonymous">
+                    Allow anonymous submissions
+                  </Label>
+                </div>
+                <Button onClick={handleCreateForm} className="w-full">
                   Create Form
                 </Button>
               </div>

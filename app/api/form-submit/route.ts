@@ -32,8 +32,25 @@ Always respond with valid JSON when updating answers. You can also provide expla
 
 export async function POST(req: Request) {
   try {
-    const { messages, formData, currentAnswers } = await req.json();
+    console.log("Received request to /api/form-submit");
+    const body = await req.json();
+    console.log("Request body:", JSON.stringify(body, null, 2));
 
+    const { messages, formData, currentAnswers } = body;
+
+    if (!messages || !formData || !currentAnswers) {
+      console.log("Missing required fields:", {
+        messages,
+        formData,
+        currentAnswers,
+      });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Calling OpenAI API...");
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -49,11 +66,38 @@ Current answers: ${JSON.stringify(currentAnswers)}`,
       max_tokens: 1000,
     });
 
+    console.log("OpenAI API response:", JSON.stringify(response, null, 2));
     const message = response.choices[0].message.content;
 
+    if (!message) {
+      console.log("No message in OpenAI response");
+      return NextResponse.json(
+        { error: "No response from AI" },
+        { status: 500 }
+      );
+    }
+
+    console.log("Sending response:", { message });
     return NextResponse.json({ message });
   } catch (error) {
     console.error("Form submission API error:", error);
+
+    // Handle OpenAI API errors
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+
+      if (error.message.includes("API key")) {
+        return NextResponse.json(
+          { error: "AI service configuration error" },
+          { status: 500 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 }

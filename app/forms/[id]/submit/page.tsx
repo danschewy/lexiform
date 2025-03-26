@@ -65,7 +65,6 @@ interface ParsedAnswers {
 
 export default function SubmitPage({ params }: SubmitPageProps) {
   const { id } = use(params);
-  const { user } = useAuth();
   const [form, setForm] = useState<EnhancedForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -136,6 +135,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     setIsParsing(true);
 
     try {
+      console.log("Sending request to /api/form-submit");
       const response = await fetch("/api/form-submit", {
         method: "POST",
         headers: {
@@ -151,12 +151,30 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log("Raw response:", responseText);
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse response as JSON:", e);
+        console.error("Response text:", await response.text());
+        throw new Error("Invalid response from server");
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        console.error("Response not OK:", data);
+        throw new Error(data.error || "Failed to get response");
+      }
+
       const assistantMessage = data.message;
+      console.log("Assistant message:", assistantMessage);
 
       // Check if the message contains valid JSON in the expected format
       try {
@@ -206,7 +224,19 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         ]);
       }
     } catch (error) {
-      toast.error("Failed to get response");
+      console.error("Error submitting form:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to submit form"
+      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateUniqueId(),
+          role: "assistant",
+          content:
+            "I apologize, but I encountered an error. Please try again or rephrase your request.",
+        },
+      ]);
     } finally {
       setIsParsing(false);
     }
@@ -218,31 +248,20 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     setSubmitting(true);
     try {
       const supabase = createClient();
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      let userId = currentUser?.id;
 
-      if (!userId && !form.allow_anonymous) {
-        const returnUrl = encodeURIComponent(window.location.pathname);
-        router.push(`/auth/login?redirectTo=${returnUrl}`);
-        setSubmitting(false);
-        return;
-      }
-
-      const responseData: ResponseData = {
-        form_id: id,
-        user_id: userId || "anonymous",
-        answers,
-      };
-
-      const { error } = await supabase.from("responses").insert(responseData);
+      const { error } = await supabase.from("responses").insert({
+        form_id: form.id,
+        user_id: null, // Use NULL for anonymous submissions
+        answers: answers,
+      });
 
       if (error) throw error;
+
       setSubmitted(true);
+      toast.success("Form submitted successfully!");
     } catch (error) {
-      console.error("Error submitting response:", error);
-      toast.error("Failed to submit response");
+      console.error("Error submitting form:", error);
+      toast.error("Failed to submit form");
     } finally {
       setSubmitting(false);
     }
@@ -280,6 +299,22 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         </Link>
         <h1 className="text-2xl font-bold">{form?.title}</h1>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{form.title}</CardTitle>
+              <CardDescription>{form.description}</CardDescription>
+            </div>
+            {form.allow_anonymous && (
+              <div className="text-sm text-muted-foreground">
+                Anonymous submissions allowed
+              </div>
+            )}
+          </div>
+        </CardHeader>
+      </Card>
 
       {submitted ? (
         <Card>
