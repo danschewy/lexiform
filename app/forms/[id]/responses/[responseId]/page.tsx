@@ -36,13 +36,11 @@ export default function ResponsePage({ params }: ResponsePageProps) {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) {
-        console.log("No user found, redirecting to login");
         router.push("/auth/login");
         return;
       }
 
       try {
-        console.log("Fetching response:", responseId);
         // Fetch response first
         const { data: responseData, error: responseError } = await supabase
           .from("responses")
@@ -69,7 +67,6 @@ export default function ResponsePage({ params }: ResponsePageProps) {
         }
 
         if (formData.user_id !== user.id && responseData.user_id !== user.id) {
-          console.log("User does not have access to this response");
           setError("You don't have access to this response");
           return;
         }

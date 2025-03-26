@@ -41,18 +41,13 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
     onError: (error) => {
       console.error("Chat error:", error);
     },
-    onFinish: (message) => {
-      console.log("Chat finished:", message);
-    },
-    onResponse: (response) => {
-      console.log("Chat response:", response);
-    },
+    onFinish: (message) => {},
+    onResponse: (response) => {},
   });
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) {
-        console.log("No user found, redirecting to login");
         router.push("/auth/login");
         return;
       }
@@ -120,8 +115,6 @@ Provide:
 2. Notable insights
 3. Unique responses
 4. Stats (if relevant)`;
-
-      console.log("Submitting prompt:", prompt);
 
       // Clear existing messages and append the new prompt
       setMessages([]);

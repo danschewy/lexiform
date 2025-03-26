@@ -83,7 +83,6 @@ export default function FormPage({ params }: FormPageProps) {
           .limit(5);
 
         if (responsesError) throw responsesError;
-        console.log("Fetched responses:", responsesData);
         setResponses(responsesData || []);
       } catch (error) {
         console.error("Error fetching form:", error);

@@ -6,7 +6,6 @@ export const runtime = "edge";
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
-    console.log("Received messages:", messages);
 
     if (!messages || messages.length === 0) {
       return new Response("No messages provided", { status: 400 });
@@ -17,8 +16,6 @@ export async function POST(req: Request) {
     if (!lastMessage?.content) {
       return new Response("No content to analyze", { status: 400 });
     }
-
-    console.log("Processing message:", lastMessage.content);
 
     const stream = await streamText({
       model: openai("gpt-4o-mini"),
@@ -59,7 +56,6 @@ IMPORTANT: Format your response in Markdown for better readability.`,
       maxTokens: 2000,
     });
 
-    console.log("Stream created, sending response");
     return stream.toDataStreamResponse();
   } catch (error) {
     console.error("Error in form summary:", error);

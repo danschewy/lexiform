@@ -28,55 +28,39 @@ export default function MyResponsesPage() {
         } = await supabase.auth.getUser();
 
         if (!currentUser) {
-          console.log("No user found, redirecting to login");
           router.push("/auth/login");
           return;
         }
 
-        console.log("Fetching responses for user:", currentUser.id);
         const { data: responsesData, error: responsesError } = await supabase
           .from("responses")
           .select("*")
           .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false });
 
-        console.log("Raw response from supabase:", {
-          data: responsesData,
-          error: responsesError,
-        });
-
         if (responsesError) {
           console.error("Error fetching responses:", responsesError);
           throw responsesError;
         }
 
-        console.log("Setting responses state with:", responsesData);
         setResponses(responsesData || []);
 
         // Get unique form IDs from responses
         const formIds = [
           ...new Set(responsesData?.map((r) => r.form_id) || []),
         ];
-        console.log("Unique form IDs:", formIds);
 
         if (formIds.length > 0) {
-          console.log("Fetching forms for IDs:", formIds);
           const { data: formsData, error: formsError } = await supabase
             .from("forms")
             .select("*")
             .in("id", formIds);
-
-          console.log("Raw forms response:", {
-            data: formsData,
-            error: formsError,
-          });
 
           if (formsError) {
             console.error("Error fetching forms:", formsError);
             throw formsError;
           }
 
-          console.log("Setting forms state with:", formsData);
           setForms(formsData || []);
         }
       } catch (error) {
