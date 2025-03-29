@@ -3,8 +3,8 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
+  title: "LexiForm",
+  description: "Create and manage forms with AI assistance",
   generator: "v0.dev",
 };
 

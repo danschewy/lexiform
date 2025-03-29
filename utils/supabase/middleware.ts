@@ -43,6 +43,8 @@ export async function updateSession(request: NextRequest) {
     // Allow access to public pages without redirection
     const isPublicPage =
       request.nextUrl.pathname === "/" ||
+      request.nextUrl.pathname === "/privacy" ||
+      request.nextUrl.pathname === "/terms" ||
       request.nextUrl.pathname.startsWith("/auth/");
 
     // Check if this is a form submission page or API endpoint

@@ -229,6 +229,15 @@ export default function LandingPage() {
               <Link href="#" className="text-gray-600 hover:text-primary">
                 Contact
               </Link>
+              <Link
+                href="/privacy"
+                className="text-gray-600 hover:text-primary"
+              >
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="text-gray-600 hover:text-primary">
+                Terms & Conditions
+              </Link>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
