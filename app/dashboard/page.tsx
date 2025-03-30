@@ -38,25 +38,28 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false });
 
         if (formsError) throw formsError;
+        setForms(formsData || []);
 
         // Fetch responses
         const { data: responsesData, error: responsesError } = await supabase
           .from("responses")
           .select(
             `
-            *,
-            forms (
-              title
-            )
-          `
+          id,
+          created_at,
+          form_id,
+          answers,  
+          forms (  
+            title
           )
+        `
+          )
+          .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(10);
 
         if (responsesError) throw responsesError;
         setResponses(responsesData || []);
-
-        setForms(formsData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {

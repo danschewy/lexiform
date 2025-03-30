@@ -34,7 +34,7 @@ export default function Navbar() {
           <span className="font-bold text-xl">LexiForm</span>
         </Link>
 
-        <nav className="hidden md:flex items-center space-x-6">
+        <nav className="flex items-center space-x-6">
           <Link
             href="/dashboard"
             className={`text-sm ${
