@@ -17,14 +17,34 @@ When the user provides their answers, you should:
 
 The answers array should match the length of the form's prompts array, with each answer corresponding to the question at the same index.
 
+Important rules for different question types:
+- Text questions: Return the user's response as text
+- Multiple-choice questions: Return the exact option text that matches one of the predefined options
+- True/false questions: Return either "true" or "false" (as strings)
+
 If the user's response doesn't provide enough information for all questions, keep the existing answers for those questions.
 
-Example user response: "I had a great experience at the restaurant. The service was excellent and the food was delicious. I would definitely recommend it to others."
+Example form with different question types:
+{
+  "title": "Customer Feedback",
+  "prompts": [
+    "How would you rate our service?",
+    "What was your favorite dish?",
+    "Would you recommend us?"
+  ],
+  "question_types": [
+    { "type": "multiple-choice", "options": ["Excellent", "Good", "Fair", "Poor"] },
+    { "type": "text" },
+    { "type": "true-false" }
+  ]
+}
+
+Example user response: "The service was excellent, I loved the pasta dish, and I would definitely recommend this place to others."
 Example response: {
   "answers": [
-    "Great experience",
-    "Excellent service and delicious food",
-    "Yes, would recommend"
+    "Excellent",
+    "I loved the pasta dish",
+    "true"
   ]
 }
 

@@ -21,12 +21,19 @@ import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 
-// If the Database type doesn't include allow_anonymous yet, add it manually
+interface QuestionType {
+  type: "text" | "multiple-choice" | "true-false";
+  options?: string[];
+}
+
 interface EnhancedForm extends Form {
   allow_anonymous?: boolean;
+  question_types?: QuestionType[];
 }
 
 interface Message {
@@ -245,6 +252,12 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const handleFinalSubmit = async () => {
     if (!form) return;
 
+    // Validate all questions are answered and match their types
+    if (!validateAnswers()) {
+      toast.error("Please answer all questions correctly");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const supabase = createClient();
@@ -259,6 +272,11 @@ export default function SubmitPage({ params }: SubmitPageProps) {
 
       setSubmitted(true);
       toast.success("Form submitted successfully!");
+
+      // Redirect to a thank you page or dashboard after a short delay
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } catch (error) {
       console.error("Error submitting form:", error);
       toast.error("Failed to submit form");
@@ -271,6 +289,94 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const areAllQuestionsAnswered = () => {
     if (!form) return false;
     return answers.every((answer) => answer && answer.trim().length > 0);
+  };
+
+  const validateAnswers = () => {
+    if (!form) return false;
+    return answers.every((answer, index) => {
+      const questionType = form.question_types?.[index];
+      if (questionType) {
+        switch (questionType.type) {
+          case "text":
+            return answer && answer.trim().length > 0;
+          case "multiple-choice":
+            return answer && questionType.options?.includes(answer);
+          case "true-false":
+            return answer === "true" || answer === "false";
+          default:
+            return false;
+        }
+      }
+      return false;
+    });
+  };
+
+  const renderQuestionInput = (
+    index: number,
+    question: string,
+    type?: QuestionType
+  ) => {
+    if (!type) return null;
+
+    switch (type.type) {
+      case "text":
+        return (
+          <Input
+            value={answers[index]}
+            onChange={(e) => {
+              const newAnswers = [...answers];
+              newAnswers[index] = e.target.value;
+              setAnswers(newAnswers);
+            }}
+            placeholder="Enter your answer"
+          />
+        );
+      case "multiple-choice":
+        return (
+          <RadioGroup
+            value={answers[index]}
+            onValueChange={(value) => {
+              const newAnswers = [...answers];
+              newAnswers[index] = value;
+              setAnswers(newAnswers);
+            }}
+          >
+            {type.options?.map((option, optionIndex) => (
+              <div key={optionIndex} className="flex items-center space-x-2">
+                <RadioGroupItem
+                  value={option}
+                  id={`option-${index}-${optionIndex}`}
+                />
+                <Label htmlFor={`option-${index}-${optionIndex}`}>
+                  {option}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        );
+      case "true-false":
+        return (
+          <RadioGroup
+            value={answers[index]}
+            onValueChange={(value) => {
+              const newAnswers = [...answers];
+              newAnswers[index] = value;
+              setAnswers(newAnswers);
+            }}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="true" id={`true-${index}`} />
+              <Label htmlFor={`true-${index}`}>True</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="false" id={`false-${index}`} />
+              <Label htmlFor={`false-${index}`}>False</Label>
+            </div>
+          </RadioGroup>
+        );
+      default:
+        return null;
+    }
   };
 
   if (loading) {
@@ -290,26 +396,23 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="mb-4">
+    <div className="container mx-auto py-8">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
             <div>
-              <CardTitle className="mb-2">{form.title}</CardTitle>
-              <CardDescription>{form.description}</CardDescription>
+              <CardTitle>{form?.title}</CardTitle>
+              <CardDescription>{form?.description}</CardDescription>
             </div>
-            {form.allow_anonymous && (
-              <div className="text-sm text-muted-foreground">
-                Anonymous submissions allowed
-              </div>
-            )}
           </div>
         </CardHeader>
-      </Card>
-
-      {submitted ? (
-        <Card>
-          <CardContent className="pt-6">
+        <CardContent>
+          {submitted ? (
             <div className="text-center space-y-4">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <Check className="h-6 w-6 text-green-600" />
@@ -321,98 +424,87 @@ export default function SubmitPage({ params }: SubmitPageProps) {
                 Your answers have been submitted successfully.
               </p>
               <Button asChild>
-                <Link href={`/forms/${id}`}>Return to Form</Link>
+                <Link href="/dashboard">Return to Dashboard</Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Chat Interface */}
-          <div className="space-y-4">
-            <ScrollArea className="h-[500px] rounded-md border p-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`mb-4 ${
-                    message.role === "user" ? "text-right" : "text-left"
-                  }`}
-                >
-                  <div
-                    className={`inline-block p-3 rounded-lg ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {message.content}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe your answers or make changes..."
-                disabled={isParsing}
-              />
-              <Button type="submit" disabled={isParsing}>
-                {isParsing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                Send
-              </Button>
-            </form>
-          </div>
-
-          {/* Answers Preview with Manual Input */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Answers</CardTitle>
-                <CardDescription>
-                  Review and edit your responses
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Form Questions */}
+              <div className="space-y-6">
                 {form?.prompts.map((prompt, index) => (
-                  <div key={index}>
+                  <div key={index} className="space-y-2">
                     <Label>{prompt}</Label>
-                    <Textarea
-                      value={answers[index] || ""}
-                      onChange={(e) => {
-                        const newAnswers = [...answers];
-                        newAnswers[index] = e.target.value;
-                        setAnswers(newAnswers);
-                      }}
-                      placeholder="Type your answer here..."
-                      className="mt-1.5"
-                    />
+                    {renderQuestionInput(
+                      index,
+                      prompt,
+                      form.question_types?.[index]
+                    )}
                   </div>
                 ))}
-                <Button
-                  className="w-full"
-                  onClick={handleFinalSubmit}
-                  disabled={!areAllQuestionsAnswered() || submitting}
-                >
-                  {submitting ? (
-                    <>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleFinalSubmit}
+                    disabled={submitting || !validateAnswers()}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Submit
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Chat Interface */}
+              <div className="space-y-4">
+                <ScrollArea className="h-[500px] rounded-md border p-4">
+                  {messages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`mb-4 ${
+                        message.role === "user" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      <div
+                        className={`inline-block p-3 rounded-lg ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </ScrollArea>
+                <form onSubmit={handleSubmit} className="flex gap-2">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Describe your answers or make changes..."
+                    disabled={isParsing}
+                  />
+                  <Button type="submit" disabled={isParsing}>
+                    {isParsing ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit Answers"
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    Send
+                  </Button>
+                </form>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

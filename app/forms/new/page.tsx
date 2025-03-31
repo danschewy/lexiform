@@ -20,6 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Database } from "@/lib/supabase";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2 } from "lucide-react";
 
 type Template = Database["public"]["Tables"]["templates"]["Row"];
 
@@ -28,10 +31,16 @@ interface Message {
   content: string;
 }
 
+interface Question {
+  text: string;
+  type: "text" | "multiple-choice" | "true-false";
+  options?: string[];
+}
+
 interface FormState {
   title: string;
   description: string;
-  prompts: string[];
+  questions: Question[];
   allow_anonymous: boolean;
 }
 
@@ -47,12 +56,14 @@ export default function NewFormPage() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("none");
   const [formState, setFormState] = useState<FormState>({
     title: "",
     description: "",
-    prompts: [""],
+    questions: [{ text: "", type: "text" }],
     allow_anonymous: false,
   });
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +71,7 @@ export default function NewFormPage() {
   // Fetch templates on component mount
   useEffect(() => {
     const fetchTemplates = async () => {
+      setIsLoadingTemplates(true);
       try {
         const supabase = createClient();
         const { data, error } = await supabase
@@ -71,6 +83,9 @@ export default function NewFormPage() {
         setTemplates(data || []);
       } catch (error) {
         console.error("Error fetching templates:", error);
+        toast.error("Failed to load templates");
+      } finally {
+        setIsLoadingTemplates(false);
       }
     };
 
@@ -83,7 +98,7 @@ export default function NewFormPage() {
       setFormState({
         title: "",
         description: "",
-        prompts: [""],
+        questions: [{ text: "", type: "text" }],
         allow_anonymous: false,
       });
       return;
@@ -93,7 +108,10 @@ export default function NewFormPage() {
       setFormState({
         title: template.title,
         description: template.description || "",
-        prompts: template.prompts,
+        questions: template.prompts.map((prompt) => ({
+          text: prompt,
+          type: "text",
+        })),
         allow_anonymous: false,
       });
       setMessages([
@@ -141,7 +159,7 @@ export default function NewFormPage() {
           const parsed = JSON.parse(jsonStr);
 
           // Validate the structure
-          if (parsed.title && Array.isArray(parsed.prompts)) {
+          if (parsed.title && Array.isArray(parsed.questions)) {
             setFormState(parsed);
             setMessages((prev) => [
               ...prev,
@@ -186,30 +204,94 @@ export default function NewFormPage() {
       return;
     }
 
-    if (!formState.prompts.length) {
+    if (!formState.questions.length) {
       setError("Please add at least one question");
       return;
     }
 
-    if (formState.prompts.some((prompt) => !prompt.trim())) {
+    if (formState.questions.some((question) => !question.text.trim())) {
       setError("Please fill in all questions");
       return;
     }
 
+    // Validate multiple-choice questions have at least one option
+    const invalidMultipleChoice = formState.questions.find(
+      (question) =>
+        question.type === "multiple-choice" &&
+        (!question.options ||
+          question.options.length === 0 ||
+          question.options.some((opt) => !opt.trim()))
+    );
+
+    if (invalidMultipleChoice) {
+      setError("Multiple-choice questions must have at least one option");
+      return;
+    }
+
+    setIsCreating(true);
     try {
       const formId = await createForm(formState);
       toast.success("Form created successfully!");
       router.push(`/forms/${formId}`);
     } catch (error) {
       setError("Failed to create form");
+    } finally {
+      setIsCreating(false);
     }
+  };
+
+  const addQuestion = () => {
+    setFormState((prev) => ({
+      ...prev,
+      questions: [...prev.questions, { text: "", type: "text" }],
+    }));
+  };
+
+  const updateQuestion = (index: number, updates: Partial<Question>) => {
+    setFormState((prev) => {
+      const newQuestions = prev.questions.map((q, i) =>
+        i === index ? { ...q, ...updates } : q
+      );
+
+      // If changing to multiple-choice, ensure there's at least one empty option
+      if (index === index && updates.type === "multiple-choice") {
+        const question = newQuestions[index];
+        if (!question.options || question.options.length === 0) {
+          question.options = [""];
+        }
+      }
+
+      return {
+        ...prev,
+        questions: newQuestions,
+      };
+    });
+  };
+
+  const removeQuestion = (index: number) => {
+    setFormState((prev) => ({
+      ...prev,
+      questions: prev.questions.filter((_, i) => i !== index),
+    }));
   };
 
   return (
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Create New Form</CardTitle>
+          <CardTitle>Create New Form </CardTitle>
+          <div className="flex justify-end">
+            <Button onClick={handleCreateForm} disabled={isCreating}>
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Form"
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
@@ -224,22 +306,194 @@ export default function NewFormPage() {
               <Select
                 value={selectedTemplate}
                 onValueChange={handleTemplateSelect}
+                disabled={isLoadingTemplates || isCreating}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a template or start from scratch" />
+                  <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Start from scratch</SelectItem>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.title}
-                    </SelectItem>
-                  ))}
+                  {isLoadingTemplates ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  ) : (
+                    templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.title}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Form Preview */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Form Preview</h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Title</Label>
+                    <Input
+                      value={formState.title}
+                      onChange={(e) =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter form title"
+                      disabled={isCreating}
+                    />
+                  </div>
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea
+                      value={formState.description}
+                      onChange={(e) =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter form description"
+                      disabled={isCreating}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    {formState.questions.map((question, index) => (
+                      <div
+                        key={index}
+                        className="space-y-2 border p-4 rounded-lg"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <Input
+                              value={question.text}
+                              onChange={(e) =>
+                                updateQuestion(index, { text: e.target.value })
+                              }
+                              placeholder="Enter question text"
+                              disabled={isCreating}
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeQuestion(index)}
+                            disabled={isCreating}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <Select
+                            value={question.type}
+                            onValueChange={(value: Question["type"]) =>
+                              updateQuestion(index, { type: value })
+                            }
+                            disabled={isCreating}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Question type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="multiple-choice">
+                                Multiple Choice
+                              </SelectItem>
+                              <SelectItem value="true-false">
+                                True/False
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {question.type === "multiple-choice" && (
+                          <div className="space-y-2">
+                            <Label>Options</Label>
+                            {(question.options || []).map(
+                              (option, optionIndex) => (
+                                <div key={optionIndex} className="flex gap-2">
+                                  <Input
+                                    value={option}
+                                    onChange={(e) => {
+                                      const newOptions = [
+                                        ...(question.options || []),
+                                      ];
+                                      newOptions[optionIndex] = e.target.value;
+                                      updateQuestion(index, {
+                                        options: newOptions,
+                                      });
+                                    }}
+                                    placeholder="Enter option"
+                                    disabled={isCreating}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newOptions =
+                                        question.options?.filter(
+                                          (_, i) => i !== optionIndex
+                                        );
+                                      updateQuestion(index, {
+                                        options: newOptions,
+                                      });
+                                    }}
+                                    disabled={isCreating}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              )
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newOptions = [
+                                  ...(question.options || []),
+                                  "",
+                                ];
+                                updateQuestion(index, { options: newOptions });
+                              }}
+                              disabled={isCreating}
+                            >
+                              Add Option
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      onClick={addQuestion}
+                      className="w-full"
+                      disabled={isCreating}
+                    >
+                      Add Question
+                    </Button>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allow-anonymous"
+                      checked={formState.allow_anonymous}
+                      onCheckedChange={(checked) =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          allow_anonymous: checked as boolean,
+                        }))
+                      }
+                      disabled={isCreating}
+                    />
+                    <Label htmlFor="allow-anonymous">
+                      Allow anonymous submissions
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
               {/* Chat Interface */}
               <div className="space-y-4">
                 <ScrollArea className="h-[500px] rounded-md border p-4">
@@ -251,7 +505,7 @@ export default function NewFormPage() {
                       }`}
                     >
                       <div
-                        className={`inline-block p-3 rounded-lg whitespace-pre-wrap ${
+                        className={`inline-block p-3 rounded-lg ${
                           message.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted"
@@ -266,117 +520,13 @@ export default function NewFormPage() {
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Describe your form or make changes..."
-                    disabled={isLoading}
+                    placeholder="Ask me to help you create or modify your form..."
+                    disabled={isLoading || isCreating}
                   />
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading || isCreating}>
                     Send
                   </Button>
                 </form>
-              </div>
-
-              {/* Form Preview */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={formState.title}
-                    onChange={(e) =>
-                      setFormState({ ...formState, title: e.target.value })
-                    }
-                    placeholder="Enter form title"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formState.description}
-                    onChange={(e) =>
-                      setFormState({
-                        ...formState,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Enter form description"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Questions</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setFormState({
-                          ...formState,
-                          prompts: [...formState.prompts, ""],
-                        })
-                      }
-                    >
-                      Add Question
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-[200px] rounded-md border p-4">
-                    {formState.prompts.map((prompt, index) => (
-                      <div key={index} className="mb-4">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={prompt}
-                            onChange={(e) => {
-                              const newPrompts = [...formState.prompts];
-                              newPrompts[index] = e.target.value;
-                              setFormState({
-                                ...formState,
-                                prompts: newPrompts,
-                              });
-                            }}
-                            placeholder={`Question ${index + 1}`}
-                          />
-                          {formState.prompts.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const newPrompts = formState.prompts.filter(
-                                  (_, i) => i !== index
-                                );
-                                setFormState({
-                                  ...formState,
-                                  prompts: newPrompts,
-                                });
-                              }}
-                            >
-                              ×
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </ScrollArea>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="allow_anonymous"
-                    checked={formState.allow_anonymous}
-                    onChange={(e) =>
-                      setFormState({
-                        ...formState,
-                        allow_anonymous: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <Label htmlFor="allow_anonymous">
-                    Allow anonymous submissions
-                  </Label>
-                </div>
-                <Button onClick={handleCreateForm} className="w-full">
-                  Create Form
-                </Button>
               </div>
             </div>
           </div>
