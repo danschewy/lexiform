@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-[url('/background.jpg')] bg-repeat backdrop-blur-md">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
