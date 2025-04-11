@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { MessageSquare } from "lucide-react";
-
+import Image from "next/image";
 export default function AuthLayout({
   children,
 }: {
@@ -11,7 +10,13 @@ export default function AuthLayout({
       <header className="border-b">
         <div className="container flex h-16 items-center px-4">
           <Link href="/" className="flex items-center">
-            <MessageSquare className="h-6 w-6 text-primary mr-2" />
+            <Image
+              src="/logo.png"
+              alt="LexiForm Logo"
+              width={32}
+              height={32}
+              className="mr-2"
+            />
             <span className="font-bold text-xl">LexiForm</span>
           </Link>
         </div>

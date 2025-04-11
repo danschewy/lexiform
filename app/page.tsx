@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
-
+import Image from "next/image";
 export default function LandingPage() {
   const { user, logout } = useAuth();
 
@@ -21,7 +21,13 @@ export default function LandingPage() {
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <MessageSquare className="h-6 w-6 text-primary mr-2" />
+            <Image
+              src="/logo.png"
+              alt="LexiForm Logo"
+              width={32}
+              height={32}
+              className="mr-2"
+            />
             <span className="font-bold text-xl">LexiForm</span>
           </div>
           <div className="flex items-center gap-4">
@@ -213,7 +219,13 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-6 md:mb-0">
-              <MessageSquare className="h-5 w-5 text-primary mr-2" />
+              <Image
+                src="/logo.png"
+                alt="LexiForm Logo"
+                width={24}
+                height={24}
+                className="mr-2"
+              />
               <span className="font-bold">LexiForm</span>
             </div>
             <div className="flex gap-6">

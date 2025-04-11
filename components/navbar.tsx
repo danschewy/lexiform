@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, User, LogOut } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import Image from "next/image";
 export default function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -30,7 +30,13 @@ export default function Navbar() {
     <header className="border-b">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <Link href="/dashboard" className="flex items-center">
-          <MessageSquare className="h-6 w-6 text-primary mr-2" />
+          <Image
+            src="/logo.png"
+            alt="LexiForm Logo"
+            width={32}
+            height={32}
+            className="mr-2"
+          />
           <span className="font-bold text-xl">LexiForm</span>
         </Link>
 
