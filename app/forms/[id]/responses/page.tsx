@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, FileText, User, Loader2, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  User,
+  Loader2,
+  Sparkles,
+  Download,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -127,6 +134,43 @@ Provide:
     }
   };
 
+  const exportToCsv = () => {
+    if (!form || !responses.length) return;
+
+    // Create CSV header
+    const headers = ["Response ID", "Timestamp", ...form.prompts];
+
+    // Create CSV rows
+    const rows = responses.map((response) => {
+      const answers = form.prompts.map(
+        (_, index) => response.answers[index] || ""
+      );
+      return [
+        response.id,
+        new Date(response.created_at).toLocaleString(),
+        ...answers,
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${form.title}-responses.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <PageWrapper>
@@ -189,6 +233,14 @@ Provide:
             {selectedResponseIds.length > 0
               ? `Summarize ${selectedResponseIds.length} Selected`
               : "Summarize All Responses"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exportToCsv}
+            disabled={responses.length === 0}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
           </Button>
         </div>
       </div>
