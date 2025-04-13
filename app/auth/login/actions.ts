@@ -50,3 +50,87 @@ export async function login(
     };
   }
 }
+
+export async function signInWithGoogle(redirectTo?: string) {
+  console.log("signInWithGoogle called with redirectTo:", redirectTo);
+  const supabase = await createClient();
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${
+          process.env.NEXT_PUBLIC_SITE_URL
+        }/auth/callback?redirectTo=${redirectTo || "/dashboard"}`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    console.log("Supabase OAuth response:", { data, error });
+
+    if (error) {
+      console.error("Supabase OAuth error:", error);
+      return {
+        error: error.message,
+      };
+    }
+
+    if (!data?.url) {
+      console.error("No URL returned from Supabase OAuth");
+      return {
+        error: "Failed to initiate Google sign-in",
+      };
+    }
+
+    // Redirect to the OAuth URL
+    redirect(data.url);
+  } catch (error) {
+    console.error("Unexpected error in signInWithGoogle:", error);
+    return {
+      error: "An unexpected error occurred",
+    };
+  }
+}
+
+export async function signInWithGitHub(redirectTo?: string) {
+  console.log("signInWithGitHub called with redirectTo:", redirectTo);
+  const supabase = await createClient();
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${
+          process.env.NEXT_PUBLIC_SITE_URL
+        }/auth/callback?redirectTo=${redirectTo || "/dashboard"}`,
+      },
+    });
+
+    console.log("Supabase GitHub OAuth response:", { data, error });
+
+    if (error) {
+      console.error("Supabase GitHub OAuth error:", error);
+      return {
+        error: error.message,
+      };
+    }
+
+    if (!data?.url) {
+      console.error("No URL returned from Supabase GitHub OAuth");
+      return {
+        error: "Failed to initiate GitHub sign-in",
+      };
+    }
+
+    // Redirect to the OAuth URL
+    redirect(data.url);
+  } catch (error) {
+    console.error("Unexpected error in signInWithGitHub:", error);
+    return {
+      error: "An unexpected error occurred",
+    };
+  }
+}
