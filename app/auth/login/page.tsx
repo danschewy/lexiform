@@ -38,15 +38,13 @@ function GoogleSignInButton() {
   const redirectTo = searchParams.get("redirectTo");
 
   const handleGoogleSignIn = async () => {
-    console.log("Google sign-in button clicked");
     try {
       setIsLoading(true);
-      console.log("Calling signInWithGoogle with redirectTo:", redirectTo);
       const result = await signInWithGoogle(redirectTo || undefined);
-      console.log("signInWithGoogle result:", result);
-      if (result.error) {
-        console.error("Google sign-in error:", result.error);
+      if (result?.error) {
         toast.error(result.error);
+      } else if (result?.url) {
+        window.location.href = result.url;
       }
     } catch (error) {
       console.error("Google sign-in error:", error);
@@ -93,15 +91,13 @@ function GitHubSignInButton() {
   const redirectTo = searchParams.get("redirectTo");
 
   const handleGitHubSignIn = async () => {
-    console.log("GitHub sign-in button clicked");
     try {
       setIsLoading(true);
-      console.log("Calling signInWithGitHub with redirectTo:", redirectTo);
       const result = await signInWithGitHub(redirectTo || undefined);
-      console.log("signInWithGitHub result:", result);
-      if (result.error) {
-        console.error("GitHub sign-in error:", result.error);
+      if (result?.error) {
         toast.error(result.error);
+      } else if (result?.url) {
+        window.location.href = result.url;
       }
     } catch (error) {
       console.error("GitHub sign-in error:", error);

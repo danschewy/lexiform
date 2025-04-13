@@ -1,12 +1,12 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 
 export type LoginState = {
   error?: string;
   success?: boolean;
   redirectTo?: string;
+  url?: string;
 } | null;
 
 export async function login(
@@ -37,8 +37,6 @@ export async function login(
       };
     }
 
-    // Instead of using redirect(), we'll return a success state
-    // The client will handle the navigation
     return {
       success: true,
       redirectTo: redirectTo || "/dashboard",
@@ -51,86 +49,72 @@ export async function login(
   }
 }
 
-export async function signInWithGoogle(redirectTo?: string) {
-  console.log("signInWithGoogle called with redirectTo:", redirectTo);
-  const supabase = await createClient();
-
+export async function signInWithGoogle(
+  redirectTo?: string
+): Promise<LoginState> {
   try {
+    const supabase = await createClient();
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${
-          process.env.NEXT_PUBLIC_SITE_URL
-        }/auth/callback?redirectTo=${redirectTo || "/dashboard"}`,
+        redirectTo: callbackUrl,
         queryParams: {
-          access_type: "offline",
-          prompt: "consent",
+          redirect_to: redirectTo || "/dashboard",
         },
       },
     });
 
-    console.log("Supabase OAuth response:", { data, error });
+    if (error) throw error;
+    if (!data?.url) throw new Error("No URL returned from Supabase OAuth");
 
-    if (error) {
-      console.error("Supabase OAuth error:", error);
-      return {
-        error: error.message,
-      };
-    }
-
-    if (!data?.url) {
-      console.error("No URL returned from Supabase OAuth");
-      return {
-        error: "Failed to initiate Google sign-in",
-      };
-    }
-
-    // Redirect to the OAuth URL
-    redirect(data.url);
-  } catch (error) {
-    console.error("Unexpected error in signInWithGoogle:", error);
     return {
-      error: "An unexpected error occurred",
+      success: true,
+      url: data.url,
+    };
+  } catch (error) {
+    console.error("Error in signInWithGoogle:", error);
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to sign in with Google",
     };
   }
 }
 
-export async function signInWithGitHub(redirectTo?: string) {
-  console.log("signInWithGitHub called with redirectTo:", redirectTo);
-  const supabase = await createClient();
-
+export async function signInWithGitHub(
+  redirectTo?: string
+): Promise<LoginState> {
   try {
+    const supabase = await createClient();
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${
-          process.env.NEXT_PUBLIC_SITE_URL
-        }/auth/callback?redirectTo=${redirectTo || "/dashboard"}`,
+        redirectTo: callbackUrl,
+        queryParams: {
+          redirect_to: redirectTo || "/dashboard",
+        },
       },
     });
 
-    console.log("Supabase GitHub OAuth response:", { data, error });
+    if (error) throw error;
+    if (!data?.url) throw new Error("No URL returned from Supabase OAuth");
 
-    if (error) {
-      console.error("Supabase GitHub OAuth error:", error);
-      return {
-        error: error.message,
-      };
-    }
-
-    if (!data?.url) {
-      console.error("No URL returned from Supabase GitHub OAuth");
-      return {
-        error: "Failed to initiate GitHub sign-in",
-      };
-    }
-
-    // Redirect to the OAuth URL
-    redirect(data.url);
-  } catch (error) {
-    console.error("Unexpected error in signInWithGitHub:", error);
     return {
-      error: "An unexpected error occurred",
+      success: true,
+      url: data.url,
+    };
+  } catch (error) {
+    console.error("Error in signInWithGitHub:", error);
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to sign in with GitHub",
     };
   }
 }
