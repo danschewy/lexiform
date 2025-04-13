@@ -10,11 +10,23 @@ import PageWrapper from "@/components/page-wrapper";
 import { supabase } from "@/lib/supabase";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
-type Response = Database["public"]["Tables"]["responses"]["Row"];
+
+interface ResponseWithForm {
+  id: string;
+  created_at: string;
+  form_id: string;
+  answers: Record<string, any>;
+  forms: {
+    id: string;
+    title: string;
+    user_id: string;
+    prompts: string[];
+  };
+}
 
 export default function DashboardPage() {
   const [forms, setForms] = useState<Form[]>([]);
-  const [responses, setResponses] = useState<Response[]>([]);
+  const [responses, setResponses] = useState<ResponseWithForm[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -40,26 +52,49 @@ export default function DashboardPage() {
         if (formsError) throw formsError;
         setForms(formsData || []);
 
-        // Fetch responses
+        // Fetch responses with form details in a single query
         const { data: responsesData, error: responsesError } = await supabase
-          .from("responses")
+          .from("forms")
           .select(
             `
-          id,
-          created_at,
-          form_id,
-          answers,  
-          forms (  
-            title
+            id,
+            title,
+            user_id,
+            prompts,
+            responses!inner (
+              id,
+              created_at,
+              form_id,
+              answers
+            )
+          `
           )
-        `
-          )
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(10);
+          .eq("user_id", user.id);
 
         if (responsesError) throw responsesError;
-        setResponses(responsesData || []);
+
+        // Transform the response data to match our expected type and sort by created_at
+        const transformedResponses = responsesData
+          ?.flatMap((form) =>
+            form.responses?.map((response) => ({
+              ...response,
+              forms: {
+                id: form.id,
+                title: form.title,
+                user_id: form.user_id,
+                prompts: form.prompts,
+              },
+            }))
+          )
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )
+          .slice(0, 10) as ResponseWithForm[];
+
+        setResponses(transformedResponses || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -142,7 +177,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {responses.map((response) => {
-                  const form = forms.find((f) => f.id === response.form_id);
+                  if (!response?.forms) return null; // Skip if forms data is missing
                   const firstAnswer = Object.entries(response.answers)[0];
                   return (
                     <div
@@ -152,7 +187,7 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div>
                           <h3 className="font-medium">
-                            {form?.title || "Unknown Form"}
+                            {response.forms.title || "Untitled Form"}
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             {new Date(response.created_at).toLocaleDateString()}
@@ -170,10 +205,12 @@ export default function DashboardPage() {
                           View
                         </Button>
                       </div>
-                      {firstAnswer && (
+                      {firstAnswer && response.forms.prompts && (
                         <div className="mt-2 p-3 bg-muted/50 rounded-md">
                           <p className="text-sm font-medium">
-                            {form?.prompts[firstAnswer[0] as unknown as number]}
+                            {response.forms.prompts[
+                              firstAnswer[0] as unknown as number
+                            ] || "Question"}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {firstAnswer[1]}
