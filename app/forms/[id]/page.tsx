@@ -42,6 +42,11 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+type QuestionType = {
+  type: "text" | "multiple-choice" | "true-false";
+  options?: string[];
+};
+
 type Form = {
   id: string;
   created_at: string;
@@ -51,8 +56,16 @@ type Form = {
   user_id: string;
   is_active: boolean;
   allow_anonymous: boolean;
+  question_types?: QuestionType[];
 };
-type Response = Database["public"]["Tables"]["responses"]["Row"];
+
+type Response = {
+  id: string;
+  created_at: string;
+  form_id: string;
+  user_id: string | null;
+  answers: string[];
+};
 
 interface FormPageProps {
   params: Promise<{
@@ -251,59 +264,67 @@ export default function FormPage({ params }: FormPageProps) {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Form Overview */}
         <Card>
           <CardHeader>
-            <CardTitle>Form Details</CardTitle>
-            <CardDescription>View and edit your form details</CardDescription>
+            <CardTitle>Questions</CardTitle>
+            <CardDescription>
+              Overview of form questions and options
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Description</h3>
-              <p className="mt-1">
-                {form.description || "No description provided"}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Created</h3>
-              <p className="mt-1">
-                {new Date(form.created_at).toLocaleDateString()}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Status</h3>
-              <p className="mt-1">{form.is_active ? "Active" : "Inactive"}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">
-                Allow Anonymous Submissions
-              </h3>
-              <p className="mt-1">{form.allow_anonymous ? "Yes" : "No"}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Conversation Flow</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {form.prompts.map((prompt, index) => (
-                <div key={index} className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <MessageSquare className="h-4 w-4 text-primary" />
+          <CardContent className="space-y-4">
+            {form.prompts.map((prompt, index) => {
+              const questionType = form.question_types?.[index];
+              return (
+                <div key={index} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">{prompt}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Type: {questionType?.type || "text"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Prompt {index + 1}</p>
-                    <p className="mt-1 text-sm text-gray-600">{prompt}</p>
-                  </div>
+                  {questionType?.options && (
+                    <div className="mt-2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Options:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {questionType.options.map((option, optionIndex) => (
+                          <div
+                            key={optionIndex}
+                            className="text-sm px-2 py-1 bg-muted rounded"
+                          >
+                            {option}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {questionType?.type === "true-false" && (
+                    <div className="mt-2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Options:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="text-sm px-2 py-1 bg-muted rounded">
+                          True
+                        </div>
+                        <div className="text-sm px-2 py-1 bg-muted rounded">
+                          False
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </CardContent>
         </Card>
 
+        {/* Recent Responses */}
         <Card>
           <CardHeader>
             <CardTitle>Recent Responses</CardTitle>
@@ -335,14 +356,14 @@ export default function FormPage({ params }: FormPageProps) {
                       </Link>
                     </div>
                     <div className="space-y-2">
-                      {Object.entries(response.answers).map(
-                        ([question, answer]) => (
-                          <div key={question} className="text-sm">
-                            <span className="font-medium">{question}:</span>{" "}
-                            <span className="text-gray-600">{answer}</span>
-                          </div>
-                        )
-                      )}
+                      {response.answers.map((answer: string, index: number) => (
+                        <div key={index} className="text-sm">
+                          <span className="font-medium">
+                            {form.prompts[index]}:
+                          </span>{" "}
+                          <span className="text-gray-600">{answer}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}

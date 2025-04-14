@@ -52,6 +52,7 @@ export default function ResponsePage({ params }: ResponsePageProps) {
         if (responseError) {
           throw responseError;
         }
+
         setResponse(responseData);
 
         // Fetch form
@@ -123,7 +124,9 @@ export default function ResponsePage({ params }: ResponsePageProps) {
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-gray-500" />
                 <span className="text-sm text-gray-500">
-                  {response.user_id === "anonymous" ? "Anonymous" : "User"}
+                  {response.user_id === "anonymous"
+                    ? "Anonymous"
+                    : response.email || "User"}
                 </span>
               </div>
               <div className="text-sm text-gray-500">
