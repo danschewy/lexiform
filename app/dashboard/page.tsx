@@ -8,6 +8,7 @@ import { PlusCircle, BarChart3 } from "lucide-react";
 import type { Database } from "@/lib/supabase";
 import PageWrapper from "@/components/page-wrapper";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 
 type Form = Database["public"]["Tables"]["forms"]["Row"];
 
@@ -27,22 +28,45 @@ interface ResponseWithForm {
 export default function DashboardPage() {
   const [forms, setForms] = useState<Form[]>([]);
   const [responses, setResponses] = useState<ResponseWithForm[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const router = useRouter();
+  const { user, isLoading: isLoadingAuth } = useAuth();
 
   useEffect(() => {
+    try {
+      const needsRefreshFlag = localStorage.getItem(
+        "has_refreshed_after_login"
+      );
+      if (needsRefreshFlag === "false") {
+        localStorage.removeItem("has_refreshed_after_login");
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error accessing localStorage:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    let redirectCheck = true;
+    try {
+      if (localStorage.getItem("has_refreshed_after_login") === "false") {
+        redirectCheck = false;
+      }
+    } catch (error) {
+      console.error("Error accessing localStorage:", error);
+    }
+
+    if (redirectCheck && !isLoadingAuth && !user) {
+      router.push("/auth/login?redirectTo=/dashboard");
+    }
+  }, [user, isLoadingAuth, router]);
+
+  useEffect(() => {
+    if (!user || isLoadingAuth) return;
+    document.title = "Dashboard - LexiForm";
     const fetchData = async () => {
+      setIsLoadingData(true);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          router.push("/auth/login");
-          return;
-        }
-
-        // Fetch forms
         const { data: formsData, error: formsError } = await supabase
           .from("forms")
           .select("*")
@@ -52,7 +76,6 @@ export default function DashboardPage() {
         if (formsError) throw formsError;
         setForms(formsData || []);
 
-        // Fetch responses with form details in a single query
         const { data: responsesData, error: responsesError } = await supabase
           .from("forms")
           .select(
@@ -73,7 +96,6 @@ export default function DashboardPage() {
 
         if (responsesError) throw responsesError;
 
-        // Transform the response data to match our expected type and sort by created_at
         const transformedResponses = responsesData
           ?.flatMap((form) =>
             form.responses?.map((response) => ({
@@ -96,21 +118,27 @@ export default function DashboardPage() {
 
         setResponses(transformedResponses || []);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Dashboard: Error fetching data:", error);
       } finally {
-        setLoading(false);
+        setIsLoadingData(false);
       }
     };
 
     fetchData();
-  }, [router]);
+  }, [user, isLoadingAuth]);
 
-  if (loading) {
+  if (isLoadingAuth || (isLoadingData && !user)) {
     return (
       <PageWrapper>
-        <div className="text-center">Loading...</div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
       </PageWrapper>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
@@ -131,9 +159,9 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold">Your Forms</h2>
           </div>
           <div className="space-y-4">
-            {forms.length === 0 ? (
+            {forms.length === 0 && !isLoadingData ? (
               <div className="text-center py-8 text-muted-foreground">
-                No forms yet. Create your first form to get started!
+                No forms yet. Create your first form!
               </div>
             ) : (
               forms.map((form) => (
@@ -169,15 +197,14 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold">Recent Responses</h2>
           </div>
           <div className="space-y-4">
-            {responses.length === 0 ? (
+            {responses.length === 0 && !isLoadingData ? (
               <div className="text-center py-8 text-muted-foreground">
-                No responses yet. Share your forms to start collecting
-                responses!
+                No responses yet.
               </div>
             ) : (
               <div className="space-y-4">
                 {responses.map((response) => {
-                  if (!response?.forms) return null; // Skip if forms data is missing
+                  if (!response?.forms) return null;
                   const firstAnswer = Object.entries(response.answers)[0];
                   return (
                     <div

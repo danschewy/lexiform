@@ -82,6 +82,7 @@ export default function SubmitPage({ params }: SubmitPageProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isParsing, setIsParsing] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -142,7 +143,6 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     setIsParsing(true);
 
     try {
-      console.log("Sending request to /api/form-submit");
       const response = await fetch("/api/form-submit", {
         method: "POST",
         headers: {
@@ -158,16 +158,9 @@ export default function SubmitPage({ params }: SubmitPageProps) {
         }),
       });
 
-      console.log("Response status:", response.status);
-      console.log(
-        "Response headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-
       let data;
       try {
         const responseText = await response.text();
-        console.log("Raw response:", responseText);
         data = JSON.parse(responseText);
       } catch (e) {
         console.error("Failed to parse response as JSON:", e);
@@ -181,7 +174,6 @@ export default function SubmitPage({ params }: SubmitPageProps) {
       }
 
       const assistantMessage = data.message;
-      console.log("Assistant message:", assistantMessage);
 
       // Check if the message contains valid JSON in the expected format
       try {
@@ -262,9 +254,17 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     try {
       const supabase = createClient();
 
+      // Only include user information if not an anonymous submission
+      const userData = form.allow_anonymous
+        ? null
+        : {
+            user_id: user?.id,
+            email: user?.email,
+          };
+
       const { error } = await supabase.from("responses").insert({
         form_id: form.id,
-        user_id: null, // Use NULL for anonymous submissions
+        ...userData,
         answers: answers,
       });
 

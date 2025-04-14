@@ -12,49 +12,77 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithGoogle } from "@/app/auth/login/actions";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
 import { Loader2 } from "lucide-react";
-import { Card, CardContent } from "./ui/card";
-import { Separator } from "@radix-ui/react-separator";
-import { LoginForm } from "@/app/auth/login/page";
+import { Button } from "./ui/button";
 
 type AuthContextType = {
   user: User | null;
+  isLoading: boolean;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  isLoading: true,
   logout: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
+    let mounted = true;
+    setIsLoading(true);
 
-    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
       setUser(session?.user ?? null);
+      setIsLoading(false);
+
+      if (event === "SIGNED_IN") {
+        router.refresh();
+      } else if (event === "SIGNED_OUT") {
+        try {
+          localStorage.removeItem("has_refreshed_after_login");
+        } catch (error) {
+          console.error("Error removing localStorage item:", error);
+        }
+        router.refresh();
+      }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
+    try {
+      setIsLoading(true);
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast.error("Failed to sign out");
+      setIsLoading(false);
+    }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ user, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -66,13 +94,16 @@ function GoogleSignInButton() {
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo");
+  const router = useRouter();
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
       const result = await signInWithGoogle(redirectTo || undefined);
-      if (result.error) {
+      if (result?.error) {
         toast.error(result.error);
+      } else if (result?.url) {
+        window.location.href = result.url;
       }
     } catch (error) {
       toast.error("Failed to sign in with Google");
@@ -115,47 +146,5 @@ function GoogleSignInButton() {
         </>
       )}
     </Button>
-  );
-}
-
-export default function Page({
-  searchParams,
-}: {
-  searchParams: { redirectTo?: string };
-}) {
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          {/* ... existing card header ... */}
-          <CardContent>
-            <Suspense fallback={<div>Loading...</div>}>
-              <LoginForm />
-            </Suspense>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <GoogleSignInButton />
-                <Button variant="outline" type="button" className="w-full">
-                  GitHub
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-          {/* ... existing card footer ... */}
-        </Card>
-      </main>
-    </div>
   );
 }

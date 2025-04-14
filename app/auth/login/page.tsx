@@ -146,7 +146,15 @@ export function LoginForm() {
 
   useEffect(() => {
     if (state?.success) {
-      router.push(state.redirectTo || "/dashboard");
+      const targetPath = state.redirectTo || "/dashboard";
+      try {
+        localStorage.setItem("has_refreshed_after_login", "false");
+      } catch (error) {
+        console.error("Error setting localStorage item:", error);
+      }
+      router.push(targetPath);
+    } else if (state?.error) {
+      toast.error(state.error);
     }
   }, [state, router]);
 
@@ -185,9 +193,6 @@ export function LoginForm() {
         />
       </div>
       <SubmitButton />
-      {state?.error && (
-        <p className="text-sm text-red-500 text-center">{state.error}</p>
-      )}
     </form>
   );
 }

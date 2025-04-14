@@ -83,6 +83,7 @@ export default function FormPage({ params }: FormPageProps) {
 
         if (error) throw error;
         setForm(data);
+        document.title = `${data.title} - LexiForm`;
 
         // Fetch recent responses
         const { data: responsesData, error: responsesError } = await supabase

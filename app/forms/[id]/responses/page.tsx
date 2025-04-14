@@ -72,6 +72,7 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
           throw formError;
         }
         setForm(formData);
+        document.title = `${formData.title} - LexiForm`;
 
         // Fetch responses
         const { data: responsesData, error: responsesError } = await supabase
@@ -267,7 +268,9 @@ Provide:
                   <div className="flex items-center">
                     <User className="h-4 w-4 mr-2" />
                     <span className="text-sm text-gray-500">
-                      Response #{response.id.slice(0, 8)}...
+                      {response.email
+                        ? response.email
+                        : `Anonymous Response #${response.id.slice(0, 8)}...`}
                     </span>
                   </div>
                   <div className="text-sm text-gray-500">
