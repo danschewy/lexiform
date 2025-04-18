@@ -254,13 +254,13 @@ export default function SubmitPage({ params }: SubmitPageProps) {
     try {
       const supabase = createClient();
 
-      // Only include user information if not an anonymous submission
-      const userData = form.allow_anonymous
-        ? null
-        : {
-            user_id: user?.id,
-            email: user?.email,
-          };
+      // Always include user information if available, regardless of form settings
+      const userData = user
+        ? {
+            user_id: user.id,
+            email: user.email,
+          }
+        : null;
 
       const { error } = await supabase.from("responses").insert({
         form_id: form.id,

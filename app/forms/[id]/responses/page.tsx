@@ -138,19 +138,32 @@ Provide:
   const exportToCsv = () => {
     if (!form || !responses.length) return;
 
-    // Create CSV header
-    const headers = ["Response ID", "Timestamp", ...form.prompts];
+    // Create CSV header with escaped question names
+    const headers = [
+      "Response ID",
+      "Timestamp",
+      "User",
+      ...form.prompts.map((prompt) => `"${prompt.replace(/"/g, '""')}"`),
+    ];
 
     // Create CSV rows
     const rows = responses.map((response) => {
-      const answers = form.prompts.map(
-        (_, index) => response.answers[index] || ""
-      );
-      return [
+      // Get answers in the correct order based on form prompts
+      const orderedAnswers = form.prompts.map((_, index) => {
+        // Access the answer using the index as a string key
+        const answer = response.answers[index.toString()];
+        return answer || ""; // Use empty string if answer is missing
+      });
+
+      // Create row data in the same order as headers
+      const rowData = [
         response.id,
         new Date(response.created_at).toLocaleString(),
-        ...answers,
+        response.email || "Anonymous",
+        ...orderedAnswers,
       ];
+
+      return rowData;
     });
 
     // Combine headers and rows
