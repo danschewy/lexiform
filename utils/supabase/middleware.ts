@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname === "/" ||
       request.nextUrl.pathname === "/privacy" ||
       request.nextUrl.pathname === "/terms" ||
+      request.nextUrl.pathname === "/ads.txt" ||
       request.nextUrl.pathname.startsWith("/auth/");
 
     // Check if this is a form submission page or API endpoint
