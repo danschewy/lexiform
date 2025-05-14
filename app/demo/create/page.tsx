@@ -8,10 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { createForm } from "./actions";
-import { useAuth } from "@/components/auth-provider";
+import { createDemoForm } from "./actions";
 import { toast } from "sonner";
-import { createClient } from "@/utils/supabase/client";
 import {
   Select,
   SelectContent,
@@ -19,12 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Database } from "@/lib/supabase";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
-
-type Template = Database["public"]["Tables"]["templates"]["Row"];
 
 interface Message {
   role: "user" | "assistant";
@@ -44,84 +38,25 @@ interface FormState {
   allow_anonymous: boolean;
 }
 
-export default function NewFormPage() {
+export default function DemoCreatePage() {
   const router = useRouter();
-  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Hi! I'm here to help you create your form. You can:\n\n1. Start from scratch by describing what you want\n2. Select a template and modify it\n3. Ask me to add or modify questions\n4. Get suggestions for improvements\n\nWhat would you like to create?",
+        "Hi! This is the demo form creator. You can:\\n\\n1. Describe what you want to build.\\n2. Ask me to add or modify questions.\\n3. Get suggestions for improvements.\\n\\nWhat would you like to create for your demo?",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("none");
   const [formState, setFormState] = useState<FormState>({
     title: "",
     description: "",
     questions: [{ text: "", type: "text" }],
-    allow_anonymous: false,
+    allow_anonymous: true,
   });
   const [error, setError] = useState<string | null>(null);
-
-  // Fetch templates on component mount
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      setIsLoadingTemplates(true);
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("templates")
-          .select("*")
-          .order("title");
-
-        if (error) throw error;
-        setTemplates(data || []);
-      } catch (error) {
-        console.error("Error fetching templates:", error);
-        toast.error("Failed to load templates");
-      } finally {
-        setIsLoadingTemplates(false);
-      }
-    };
-
-    fetchTemplates();
-  }, []);
-
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    if (templateId === "none") {
-      setFormState({
-        title: "",
-        description: "",
-        questions: [{ text: "", type: "text" }],
-        allow_anonymous: false,
-      });
-      return;
-    }
-    const template = templates.find((t) => t.id === templateId);
-    if (template) {
-      setFormState({
-        title: template.title,
-        description: template.description || "",
-        questions: template.prompts.map((prompt) => ({
-          text: prompt,
-          type: "text",
-        })),
-        allow_anonymous: false,
-      });
-      setMessages([
-        {
-          role: "assistant",
-          content: `Template "${template.title}" loaded. You can now modify it using the chat interface.`,
-        },
-      ]);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +68,7 @@ export default function NewFormPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/demo-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -145,76 +80,100 @@ export default function NewFormPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        throw new Error("Failed to get response from chat API");
       }
 
       const data = await response.json();
-      const assistantMessage = data.message;
+      const assistantMessageContent = data.message;
 
-      // Check if the message contains valid JSON in the expected format
-      try {
-        const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const jsonStr = jsonMatch[0];
-          const parsed = JSON.parse(jsonStr);
+      let jsonToParse = null;
 
-          // Validate the structure
-          if (parsed.title && Array.isArray(parsed.questions)) {
+      // 1. Try to extract from ```json ... ``` code block first
+      const markdownJsonMatch = assistantMessageContent.match(
+        /\`\`\`(?:json)?\s*(\{[\s\S]+?\})\s*\`\`\`/
+      );
+
+      if (markdownJsonMatch && markdownJsonMatch[1]) {
+        jsonToParse = markdownJsonMatch[1];
+      } else {
+        // 2. Fallback: if no markdown, try to find a JSON-like block (original greedy approach)
+        const generalJsonMatch = assistantMessageContent.match(/(\{[\s\S]+\})/);
+        if (generalJsonMatch && generalJsonMatch[1]) {
+          jsonToParse = generalJsonMatch[1];
+        }
+      }
+
+      if (jsonToParse) {
+        try {
+          const parsed = JSON.parse(jsonToParse);
+          // 3. Validate the structure more thoroughly
+          if (
+            parsed.title &&
+            Array.isArray(parsed.questions) &&
+            parsed.questions.every(
+              (q: any) =>
+                typeof q.text !== "undefined" && typeof q.type !== "undefined"
+            )
+          ) {
             setFormState(parsed);
             setMessages((prev) => [
               ...prev,
-              { role: "assistant", content: "Form updated successfully!" },
+              { role: "assistant", content: "Demo form updated by AI!" },
+            ]);
+          } else {
+            console.warn(
+              "Parsed JSON, but structure is invalid (missing title, questions array, or question fields):",
+              parsed
+            );
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: assistantMessageContent }, // Show raw message
             ]);
           }
-        } else {
-          // If no JSON found, just add the message
+        } catch (e) {
+          console.error(
+            "Error parsing AI response JSON:",
+            e,
+            "Attempted to parse:",
+            jsonToParse
+          );
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: assistantMessage },
+            { role: "assistant", content: assistantMessageContent }, // Show raw message
           ]);
         }
-      } catch (error) {
-        // If JSON parsing fails, just add the message
+      } else {
+        // No JSON block found by either regex
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: assistantMessage },
+          { role: "assistant", content: assistantMessageContent }, // Show raw message
         ]);
       }
     } catch (error) {
-      toast.error("Failed to get response");
+      toast.error("Failed to get response from chat API");
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateForm = async () => {
-    if (!user) {
-      setError("You must be logged in to create a form");
-      return;
-    }
-
-    // Validate form
     if (!formState.title.trim()) {
       setError("Please enter a form title");
       return;
     }
-
     if (!formState.description.trim()) {
       setError("Please enter a form description");
       return;
     }
-
     if (!formState.questions.length) {
       setError("Please add at least one question");
       return;
     }
-
     if (formState.questions.some((question) => !question.text.trim())) {
       setError("Please fill in all questions");
       return;
     }
-
-    // Validate multiple-choice questions have at least one option
     const invalidMultipleChoice = formState.questions.find(
       (question) =>
         question.type === "multiple-choice" &&
@@ -222,19 +181,44 @@ export default function NewFormPage() {
           question.options.length === 0 ||
           question.options.some((opt) => !opt.trim()))
     );
-
     if (invalidMultipleChoice) {
-      setError("Multiple-choice questions must have at least one option");
+      setError(
+        "Multiple-choice questions must have at least one option, and options cannot be empty."
+      );
       return;
     }
 
+    setError(null);
     setIsCreating(true);
     try {
-      const formId = await createForm(formState);
-      toast.success("Form created successfully!");
-      router.push(`/forms/${formId}`);
-    } catch (error) {
-      setError("Failed to create form");
+      const result = await createDemoForm(formState);
+      if (result && result.success && result.formId) {
+        try {
+          localStorage.setItem(
+            `demoForm-${result.formId}`,
+            JSON.stringify(formState)
+          );
+          toast.success("Demo form created and saved locally!");
+          router.push(`/demo/${result.formId}`);
+        } catch (storageError) {
+          console.error(
+            "Error saving demo form to localStorage:",
+            storageError
+          );
+          toast.error(
+            "Could not save demo form locally, but proceeding to view. Form might not load correctly."
+          );
+          router.push(`/demo/${result.formId}`);
+        }
+      } else {
+        throw new Error(
+          result?.message || "Failed to get valid formId from demo creation"
+        );
+      }
+    } catch (error: any) {
+      setError(error.message || "Failed to create demo form");
+      toast.error(error.message || "Failed to create demo form");
+      console.error("Create demo form error:", error);
     } finally {
       setIsCreating(false);
     }
@@ -243,7 +227,7 @@ export default function NewFormPage() {
   const addQuestion = () => {
     setFormState((prev) => ({
       ...prev,
-      questions: [...prev.questions, { text: "", type: "text" }],
+      questions: [...prev.questions, { text: "", type: "text", options: [] }],
     }));
   };
 
@@ -252,15 +236,12 @@ export default function NewFormPage() {
       const newQuestions = prev.questions.map((q, i) =>
         i === index ? { ...q, ...updates } : q
       );
-
-      // If changing to multiple-choice, ensure there's at least one empty option
-      if (index === index && updates.type === "multiple-choice") {
+      if (updates.type === "multiple-choice" && index !== undefined) {
         const question = newQuestions[index];
         if (!question.options || question.options.length === 0) {
           question.options = [""];
         }
       }
-
       return {
         ...prev,
         questions: newQuestions,
@@ -279,16 +260,19 @@ export default function NewFormPage() {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Create New Form </CardTitle>
+          <CardTitle>Create New Demo Form</CardTitle>
           <div className="flex justify-end">
-            <Button onClick={handleCreateForm} disabled={isCreating}>
+            <Button
+              onClick={handleCreateForm}
+              disabled={isCreating || isLoading}
+            >
               {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  Creating Demo...
                 </>
               ) : (
-                "Create Form"
+                "Create Demo Form"
               )}
             </Button>
           </div>
@@ -300,42 +284,14 @@ export default function NewFormPage() {
                 {error}
               </div>
             )}
-            {/* Template Selection */}
-            <div className="space-y-2">
-              <Label>Template</Label>
-              <Select
-                value={selectedTemplate}
-                onValueChange={handleTemplateSelect}
-                disabled={isLoadingTemplates || isCreating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent position="item-aligned">
-                  <SelectItem value="none">Start from scratch</SelectItem>
-                  {isLoadingTemplates ? (
-                    <div className="flex items-center justify-center py-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </div>
-                  ) : (
-                    templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.title}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Form Preview */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Form Preview</h3>
+                <h3 className="text-lg font-semibold">Demo Form Preview</h3>
                 <div className="space-y-4">
                   <div>
-                    <Label>Title</Label>
+                    <Label htmlFor="form-title">Title</Label>
                     <Input
+                      id="form-title"
                       value={formState.title}
                       onChange={(e) =>
                         setFormState((prev) => ({
@@ -343,13 +299,14 @@ export default function NewFormPage() {
                           title: e.target.value,
                         }))
                       }
-                      placeholder="Enter form title"
+                      placeholder="Enter demo form title"
                       disabled={isCreating}
                     />
                   </div>
                   <div>
-                    <Label>Description</Label>
+                    <Label htmlFor="form-description">Description</Label>
                     <Textarea
+                      id="form-description"
                       value={formState.description}
                       onChange={(e) =>
                         setFormState((prev) => ({
@@ -357,7 +314,7 @@ export default function NewFormPage() {
                           description: e.target.value,
                         }))
                       }
-                      placeholder="Enter form description"
+                      placeholder="Enter demo form description"
                       disabled={isCreating}
                     />
                   </div>
@@ -369,7 +326,11 @@ export default function NewFormPage() {
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
+                            <Label htmlFor={`q-${index}-text`}>
+                              Question {index + 1}
+                            </Label>
                             <Input
+                              id={`q-${index}-text`}
                               value={question.text}
                               onChange={(e) =>
                                 updateQuestion(index, { text: e.target.value })
@@ -383,19 +344,37 @@ export default function NewFormPage() {
                             size="sm"
                             onClick={() => removeQuestion(index)}
                             disabled={isCreating}
+                            className="mt-6"
                           >
                             Remove
                           </Button>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
+                          <Label
+                            htmlFor={`q-${index}-type`}
+                            className="whitespace-nowrap"
+                          >
+                            Type:
+                          </Label>
                           <Select
                             value={question.type}
                             onValueChange={(value: Question["type"]) =>
-                              updateQuestion(index, { type: value })
+                              updateQuestion(index, {
+                                type: value,
+                                options:
+                                  value === "multiple-choice"
+                                    ? question.options?.length
+                                      ? question.options
+                                      : [""]
+                                    : [],
+                              })
                             }
                             disabled={isCreating}
                           >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger
+                              id={`q-${index}-type`}
+                              className="w-[180px]"
+                            >
                               <SelectValue placeholder="Question type" />
                             </SelectTrigger>
                             <SelectContent position="item-aligned">
@@ -406,15 +385,19 @@ export default function NewFormPage() {
                               <SelectItem value="true-false">
                                 True/False
                               </SelectItem>
+                              {/* <SelectItem value="textarea">Textarea</SelectItem> EDITED: Commented out */}
                             </SelectContent>
                           </Select>
                         </div>
                         {question.type === "multiple-choice" && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 pl-4">
                             <Label>Options</Label>
                             {(question.options || []).map(
                               (option, optionIndex) => (
-                                <div key={optionIndex} className="flex gap-2">
+                                <div
+                                  key={optionIndex}
+                                  className="flex gap-2 items-center"
+                                >
                                   <Input
                                     value={option}
                                     onChange={(e) => {
@@ -426,12 +409,12 @@ export default function NewFormPage() {
                                         options: newOptions,
                                       });
                                     }}
-                                    placeholder="Enter option"
+                                    placeholder={`Option ${optionIndex + 1}`}
                                     disabled={isCreating}
                                   />
                                   <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => {
                                       const newOptions =
                                         question.options?.filter(
@@ -441,9 +424,13 @@ export default function NewFormPage() {
                                         options: newOptions,
                                       });
                                     }}
-                                    disabled={isCreating}
+                                    disabled={
+                                      isCreating ||
+                                      (question.options &&
+                                        question.options.length <= 1)
+                                    }
                                   >
-                                    Remove
+                                    &times;
                                   </Button>
                                 </div>
                               )
@@ -488,30 +475,34 @@ export default function NewFormPage() {
                       disabled={isCreating}
                     />
                     <Label htmlFor="allow-anonymous">
-                      Allow anonymous submissions
+                      Allow anonymous submissions for this demo form
                     </Label>
                   </div>
                 </div>
               </div>
 
-              {/* Chat Interface */}
               <div className="space-y-4">
-                <ScrollArea className="h-[500px] rounded-md border p-4">
+                <h3 className="text-lg font-semibold">AI Assistant (Demo)</h3>
+                <ScrollArea className="h-[calc(500px_-_theme(spacing.8)_-_theme(spacing.6)_-_2rem)] rounded-md border p-4">
                   {messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`mb-4 ${
-                        message.role === "user" ? "text-right" : "text-left"
+                      className={`mb-4 flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
                       }`}
                     >
                       <div
-                        className={`inline-block p-3 rounded-lg ${
+                        className={`inline-block max-w-[80%] p-3 rounded-lg ${
                           message.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted"
                         }`}
                       >
-                        {message.content}
+                        {message.content.split("\\n").map((line, i) => (
+                          <p key={i}>{line}</p>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -520,11 +511,15 @@ export default function NewFormPage() {
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask me to help you create or modify your form..."
+                    placeholder="Ask for help or describe your demo form..."
                     disabled={isLoading || isCreating}
                   />
                   <Button type="submit" disabled={isLoading || isCreating}>
-                    Send
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Send"
+                    )}
                   </Button>
                 </form>
               </div>

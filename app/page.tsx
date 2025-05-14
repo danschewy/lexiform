@@ -90,7 +90,7 @@ export default function LandingPage() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/dashboard">
+                  <Link href="/demo/create">
                     <Button size="lg" variant="outline" className="px-8">
                       View demo
                     </Button>
