@@ -9,6 +9,7 @@ import {
   Zap,
   User,
   LogOut,
+  PlayCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
@@ -91,7 +92,11 @@ export default function LandingPage() {
                     </Button>
                   </Link>
                   <Link href="/demo/create">
-                    <Button size="lg" variant="outline" className="px-8">
+                    <Button
+                      size="lg"
+                      className="px-8 bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ease-in-out group"
+                    >
+                      <PlayCircle className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:rotate-12" />
                       View demo
                     </Button>
                   </Link>
